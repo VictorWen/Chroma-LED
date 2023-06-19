@@ -9,7 +9,7 @@ CFLAGS = -Wall -g -O2
 # ****************************************************
 # Targets needed to bring the executable up to date
 
-default: main
+default: chroma
 
-main: src/main.cpp
-	$(CC) $(CFLAGS) -o chroma src/main.cpp
+chroma: src/main.cpp src/chromatic.h src/chromatic.cpp
+	$(CC) $(CFLAGS) -o $@ src/main.cpp src/chromatic.h src/chromatic.cpp
