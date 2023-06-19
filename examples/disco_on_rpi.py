@@ -1,4 +1,3 @@
-import argparse
 import board
 import neopixel
 import numpy as np
@@ -22,19 +21,14 @@ def write_to_pixels(pixels, frame):
     pixels.show()
 
 def main():
-    # if (len(sys.argv) > 1):
-    #     n = int(sys.argv[1])
     pixels = neopixel.NeoPixel(board.D10, n, brightness=0.5, auto_write=False)
     
     frame_size = n * n_channels * dtype_size
 
     while True:
         frame = sys.stdin.buffer.read(frame_size)
-        # print(frame)
         frame = np.frombuffer(frame, dtype=dtype).reshape(n, n_channels)
-        # print(frame)
         write_to_pixels(pixels, frame)
-        print(pixels)
         
     
 if __name__ == "__main__":

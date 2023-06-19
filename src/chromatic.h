@@ -24,6 +24,9 @@ struct vec4 {
 	}
 };
 
+vec4 abs(const vec4& vec);
+vec4 max(const vec4& vec, const float other);
+
 class Shader {
 	public:
 		virtual ~Shader() { return; }
@@ -33,7 +36,6 @@ class Shader {
 
 class ExampleShader : public Shader {
 	public:
-		void tick(const float time);
 		virtual void draw(const float time, const float index, vec4& pixel) const;
 };
 
