@@ -11,5 +11,5 @@ CFLAGS = -Wall -g -O2
 
 default: chroma
 
-chroma: src/main.cpp src/chromatic.h src/chromatic.cpp
-	$(CC) $(CFLAGS) -o $@ src/main.cpp src/chromatic.h src/chromatic.cpp
+chroma: src/*.cpp src/*.h
+	$(CC) $(CFLAGS) -o $@ src/*.cpp src/*.h
