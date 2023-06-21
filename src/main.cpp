@@ -6,6 +6,7 @@
 
 #include "chromatic.h"
 #include "chroma_script.h"
+#include "commands.h"
 
 
 int main() {
@@ -49,6 +50,15 @@ int main() {
     PrintVisitor visitor;
     visitor.visit(*command);
     visitor.print();
+
+    CommandBuilder builder;
+    builder.new_command("slide")
+        .add_argument("EFFECT", Effect, "effect to slide")
+        .add_argument("TIME", Number, "time to finish a loop in seconds")
+        .set_description("Slides an effect with looping");
+    ChromaCommand cmd = builder;
+
+    printf("%s\n", builder.get_help().c_str());
 
     // Shader *ex = new ExampleShader();
 

@@ -1,1 +1,2 @@
-func a x y = add x (sub y x)
+func slide_rainbow x = slide rainbow x
+slide_rainbow 10

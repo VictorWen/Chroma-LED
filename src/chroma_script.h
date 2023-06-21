@@ -104,7 +104,7 @@ class FuncCall : public ParseNode {
         void eval() {};
 };
 
-class List : public ParseNode {
+class ListNode : public ParseNode {
     public:
         void parse(std::deque<ParseToken>& tokens, ParseEnvironment env);
         void accept(NodeVisitor& visitor) const;
@@ -161,7 +161,7 @@ class NodeVisitor {
         virtual void visit(const InlineFuncCall& n) = 0;
         virtual void visit(const FuncCall& n) = 0;
 
-        virtual void visit(const List& n) = 0;
+        virtual void visit(const ListNode& n) = 0;
 
         virtual void visit(const VarName& n) = 0;
         virtual void visit(const StringLiteral& n) = 0;
@@ -174,6 +174,7 @@ class PrintVisitor : public NodeVisitor {
     public:
         void print() const;
         void expand_tree(const ParseNode& n, const std::string name);
+        
         void visit(const Command& n);
         void visit(const Statement& n);
         void visit(const Expression& n);
@@ -184,7 +185,7 @@ class PrintVisitor : public NodeVisitor {
         void visit(const InlineFuncCall& n);
         void visit(const FuncCall& n);
 
-        void visit(const List& n);
+        void visit(const ListNode& n);
 
         void visit(const VarName& n);
         void visit(const StringLiteral& n);
