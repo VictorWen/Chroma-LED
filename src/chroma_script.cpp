@@ -1,13 +1,13 @@
 #include "chroma_script.h"
 #include <iostream>
 
+
 void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
     if (tokens.front().type == LITERAL && tokens.front().val == literal) {
         tokens.pop_front();
         return;
     }
     std::string error = "Expected literal " + literal;
-    // printf("HERE1\n");
     if (!tokens.empty())
         error += ", got " + tokens.front().val;
     throw ParseException(error.c_str());
@@ -19,11 +19,18 @@ std::string consume_identifier(std::deque<ParseToken>& tokens, std::string want)
         tokens.pop_front();
         return ret;
     }
-    // printf("HERE2\n");
     std::string error = "Expected identifier for " + want;
     if (!tokens.empty())
         error += ", got " + tokens.front().val;
     throw ParseException(error.c_str());
+}
+
+FuncDeclaration::FuncDeclaration(const FuncDeclaration& other) : 
+    ParseNode(other), func_name(other.func_name) { 
+    for (const auto& var_name : other.var_names) {
+        VarName* copied_var_name = static_cast<VarName*>(var_name->clone().release());
+        this->var_names.push_back(std::unique_ptr<VarName>(copied_var_name));
+    }
 }
 
 void Command::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
@@ -76,7 +83,7 @@ void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
         this->children.push_back(move(next));
     }
     else if (tokens.front().type == LITERAL && tokens.front().val == "[") {
-        std::unique_ptr<ParseNode> next(new List());
+        std::unique_ptr<ParseNode> next(new ListNode());
         next->parse(tokens, env);
         this->children.push_back(move(next));
     }
@@ -108,9 +115,9 @@ void FuncDeclaration::parse(std::deque<ParseToken>& tokens, ParseEnvironment env
     env.func_names.insert(this->func_name);
     
     while (!tokens.empty() && !(tokens.front().type == LITERAL && tokens.front().val == "=")) {
-        std::unique_ptr<ParseNode> next(new VarName());
+        std::unique_ptr<VarName> next(new VarName());
         next->parse(tokens, env);
-        this->children.push_back(move(next));
+        this->var_names.push_back(move(next));
     }
 
     eat_literal(tokens, "=");
@@ -150,6 +157,10 @@ void InlineFuncCall::parse(std::deque<ParseToken>& tokens, ParseEnvironment env)
     //     throw ParseException(error.c_str());
     // }
 
+    std::unique_ptr<ParseNode> next(new Expression());
+    next->parse(tokens, env);
+    this->children.push_back(move(next));
+
     while (!tokens.empty()) {
         std::unique_ptr<ParseNode> next(new Expression());
         next->parse(tokens, env);
@@ -183,7 +194,7 @@ void FuncCall::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
 }
 
-void List::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
+void ListNode::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     eat_literal(tokens, "[");
 
     while (!tokens.empty() && !(tokens.front().type == LITERAL && tokens.front().val == "]")) {
@@ -195,7 +206,7 @@ void List::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     eat_literal(tokens, "]");
 }
 
-void List::accept(NodeVisitor& visitor) const {
+void ListNode::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
 }
 
@@ -203,7 +214,6 @@ void VarName::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     this->var_name = consume_identifier(tokens, "variable name");
     if (env.func_names.count(this->var_name) > 0) {
         std::string error = "Variable name " + this->var_name + " already in use by a function";
-        // printf("HERE3\n");
         throw ParseException(error.c_str());
     }
 }
@@ -214,7 +224,6 @@ void VarName::accept(NodeVisitor& visitor) const {
 
 void StringLiteral::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     if (tokens.empty()) {
-        // printf("HERE4\n");
         throw ParseException("Expected a string");
     }
     this->val = tokens.front().val;
@@ -227,7 +236,6 @@ void StringLiteral::accept(NodeVisitor& visitor) const {
 
 void NumberLiteral::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     if (tokens.empty()) {
-        // printf("HERE5\n");
         throw ParseException("Expected a number");
     }
     //TODO: Insert num check!
@@ -295,8 +303,8 @@ void PrintVisitor::visit(const SetVar& n) {
     this->expand_tree(n, "SetVar (" + n.get_var_name() + ")");
 }
 
-void PrintVisitor::visit(const List& n) {
-    this->expand_tree(n, "List");
+void PrintVisitor::visit(const ListNode& n) {
+    this->expand_tree(n, "ListNode");
 }
 
 void PrintVisitor::print() const {

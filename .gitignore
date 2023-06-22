@@ -32,4 +32,6 @@
 *.app
 chroma
 
-build/*
+build/
+lib/
+libraries/
