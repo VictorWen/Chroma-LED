@@ -5,6 +5,8 @@
  
 CC = g++
 CFLAGS = -Wall -g -O0
+
+DLCLIENT = wget
  
 # ****************************************************
 # Targets needed to bring the executable up to date
@@ -12,10 +14,8 @@ CFLAGS = -Wall -g -O0
 default: chroma
 
 chroma: src/*.cpp src/*.h
-	$(CC) $(CFLAGS) -I ~/Documents/Libraries/boost_1_82_0 src/*.cpp src/*.h -o $@
+	$(CC) $(CFLAGS) -I libraries/boost_1_82_0 src/*.cpp src/*.h -o $@
 
-chroma_script.o: src/chroma_script.cpp src/chroma_script.h
-	$(CC) $(CFLAGS) -I ~/Documents/Libraries/boost_1_82_0 src/chroma_script.cpp src/chroma_scrip.h -o $@
-
-chroma.o: src/chroma.cpp src/chroma.h
-	$(CC) $(CFLAGS) -I ~/Documents/Libraries/boost_1_82_0 src/chroma.cpp src/chroma.h -o $@
+.PHONY: boost
+boost: 
+	cd libraries && $(DLCLIENT) https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz $(DLFLAGS) && tar -xvf boost_1_82_0.tar.gz && rm boost_1_82_0.tar.gz

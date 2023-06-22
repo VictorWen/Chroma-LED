@@ -66,22 +66,23 @@ int main() {
     visitor.visit(*command);
     visitor.print();
 
-    CommandBuilder<SlideEffect> builder("slide");
+    auto builder_ptr = std::make_unique<CommandBuilder<SlideEffect>>("slide");
+    auto& builder = *builder_ptr;
     builder.add_argument("TIME", Number, "time to finish a loop in seconds")
         .set_description("Slides an effect with looping");
 
     printf("%s\n", builder.get_help().c_str());
 
     ChromaEnvironment cenv;
-    cenv.functions["slide"] = std::unique_ptr<ChromaFunction>(&builder);
+    cenv.functions["slide"] = move(builder_ptr);
 
-    // try {
-    //     Evaluator ev(cenv);
-    //     ev.visit(*command);
-    //     std::cout << ev.get_env().ret_val.get_type() << std::endl;
-    // } catch (ChromaRuntimeException& e) {
-    //     printf("Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
-    // }
+    try {
+        Evaluator ev(cenv);
+        ev.visit(*command);
+        std::cout << ev.get_env().ret_val.get_type() << std::endl;
+    } catch (ChromaRuntimeException& e) {
+        printf("Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
+    }
 
     // Shader *ex = new ExampleShader();
 
