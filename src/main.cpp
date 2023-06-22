@@ -4,9 +4,21 @@
 #include <deque>
 #include <memory>
 
+#include "chroma.h"
 #include "chromatic.h"
 #include "chroma_script.h"
 #include "commands.h"
+#include "evaluator.h"
+
+
+class SlideEffect : public ChromaObject {
+    private:
+        float time;
+    public:
+        SlideEffect(const std::vector<ChromaData>& args) {
+            this->time = args[0].get_float();
+        }
+};
 
 
 int main() {
@@ -15,18 +27,18 @@ int main() {
     // }
 
     std::deque<ParseToken> tokens;
-    tokens.push_back(ParseToken("func", LITERAL));
-    tokens.push_back(ParseToken("a", IDENTIFIER));
-    tokens.push_back(ParseToken("x", IDENTIFIER));
-    tokens.push_back(ParseToken("y", IDENTIFIER));
-    tokens.push_back(ParseToken("=", LITERAL));
-    tokens.push_back(ParseToken("add", IDENTIFIER));
-    tokens.push_back(ParseToken("x", IDENTIFIER));
-    tokens.push_back(ParseToken("(", LITERAL));
-    tokens.push_back(ParseToken("sub", IDENTIFIER));
-    tokens.push_back(ParseToken("y", IDENTIFIER));
-    tokens.push_back(ParseToken("x", IDENTIFIER));
-    tokens.push_back(ParseToken(")", LITERAL));
+    // tokens.push_back(ParseToken("func", LITERAL));
+    // tokens.push_back(ParseToken("a", IDENTIFIER));
+    // tokens.push_back(ParseToken("x", IDENTIFIER));
+    // tokens.push_back(ParseToken("y", IDENTIFIER));
+    // tokens.push_back(ParseToken("=", LITERAL));
+    // tokens.push_back(ParseToken("add", IDENTIFIER));
+    // tokens.push_back(ParseToken("x", IDENTIFIER));
+    // tokens.push_back(ParseToken("(", LITERAL));
+    // tokens.push_back(ParseToken("sub", IDENTIFIER));
+    // tokens.push_back(ParseToken("y", IDENTIFIER));
+    // tokens.push_back(ParseToken("x", IDENTIFIER));
+    // tokens.push_back(ParseToken(")", LITERAL));
 
     // tokens.push_back(ParseToken("[", LITERAL));
     // tokens.push_back(ParseToken("a", IDENTIFIER));
@@ -34,10 +46,13 @@ int main() {
     // tokens.push_back(ParseToken("y", IDENTIFIER));
     // tokens.push_back(ParseToken("]", LITERAL));
 
+    tokens.push_back(ParseToken("slide", IDENTIFIER));
+    tokens.push_back(ParseToken("10", NUMBER));
+
     std::unique_ptr<Command> command(new Command());
     ParseEnvironment env;
-    env.func_names.insert("add");
-    env.func_names.insert("sub");
+    env.func_names.insert("slide");
+    // env.func_names.insert("sub");
     
     try {
         command->parse(tokens, env);
@@ -51,14 +66,22 @@ int main() {
     visitor.visit(*command);
     visitor.print();
 
-    CommandBuilder builder;
-    builder.new_command("slide")
-        .add_argument("EFFECT", Effect, "effect to slide")
-        .add_argument("TIME", Number, "time to finish a loop in seconds")
+    CommandBuilder<SlideEffect> builder("slide");
+    builder.add_argument("TIME", Number, "time to finish a loop in seconds")
         .set_description("Slides an effect with looping");
-    ChromaCommand cmd = builder;
 
     printf("%s\n", builder.get_help().c_str());
+
+    ChromaEnvironment cenv;
+    cenv.functions["slide"] = std::unique_ptr<ChromaFunction>(&builder);
+
+    // try {
+    //     Evaluator ev(cenv);
+    //     ev.visit(*command);
+    //     std::cout << ev.get_env().ret_val.get_type() << std::endl;
+    // } catch (ChromaRuntimeException& e) {
+    //     printf("Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
+    // }
 
     // Shader *ex = new ExampleShader();
 

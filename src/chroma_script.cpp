@@ -1,6 +1,7 @@
 #include "chroma_script.h"
 #include <iostream>
 
+
 void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
     if (tokens.front().type == LITERAL && tokens.front().val == literal) {
         tokens.pop_front();
@@ -22,6 +23,14 @@ std::string consume_identifier(std::deque<ParseToken>& tokens, std::string want)
     if (!tokens.empty())
         error += ", got " + tokens.front().val;
     throw ParseException(error.c_str());
+}
+
+FuncDeclaration::FuncDeclaration(const FuncDeclaration& other) : 
+    ParseNode(other), func_name(other.func_name) { 
+    for (const auto& var_name : other.var_names) {
+        VarName* copied_var_name = static_cast<VarName*>(var_name->clone().release());
+        this->var_names.push_back(std::unique_ptr<VarName>(copied_var_name));
+    }
 }
 
 void Command::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
@@ -106,9 +115,9 @@ void FuncDeclaration::parse(std::deque<ParseToken>& tokens, ParseEnvironment env
     env.func_names.insert(this->func_name);
     
     while (!tokens.empty() && !(tokens.front().type == LITERAL && tokens.front().val == "=")) {
-        std::unique_ptr<ParseNode> next(new VarName());
+        std::unique_ptr<VarName> next(new VarName());
         next->parse(tokens, env);
-        this->children.push_back(move(next));
+        this->var_names.push_back(move(next));
     }
 
     eat_literal(tokens, "=");
