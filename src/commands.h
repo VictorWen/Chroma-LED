@@ -47,10 +47,10 @@ class CommandArgument {
 template <class T>
 class ChromaCommand : public ChromaFunction {
     protected: 
-        ChromaCommand(const std::string& call_name) : ChromaFunction(call_name) { }
         std::string call_name;
         std::string description;
         std::vector<CommandArgument> arguments;
+        ChromaCommand(const std::string& call_name) : ChromaFunction(call_name), call_name(call_name) { }
     public:
         ChromaCommand(const std::string& call_name, const std::string& description, const std::vector<CommandArgument>& args) :
             ChromaFunction(call_name), call_name(call_name), description(description), arguments(args) { }

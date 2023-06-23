@@ -27,9 +27,11 @@ def main():
 
     while True:
         frame = sys.stdin.buffer.read(frame_size)
+        # print(frame)
         frame = np.frombuffer(frame, dtype=dtype).reshape(n, n_channels)
+        # print(frame)
         write_to_pixels(pixels, frame)
-        
+       
     
 if __name__ == "__main__":
     main()
