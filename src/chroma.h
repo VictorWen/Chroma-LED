@@ -5,17 +5,21 @@
 #include <memory>
 #include <vector>
 #include <unordered_map>
+#include <unistd.h>
+#include <chrono>
 
 #include <boost/variant/variant.hpp>
 #include <boost/variant/get.hpp>
 
-#include <iostream>
+#include "chromatic.h"
 
 class ChromaRuntimeException;
 class ChromaObject;
 class ChromaData;
 class ChromaFunction;
 class ChromaEnvironment;
+
+double get_now();
 
 class ChromaRuntimeException : public std::exception {
     private:
@@ -31,12 +35,31 @@ enum ChromaType {
     String, Number, Effect, Object, List, Null
 };
 
+struct ChromaState {
+    public:
+        int pixel_length;
+        float delta_time;
+        float time;
+        float get_time_diff(float prev) const { 
+            return time - prev;
+        }
+};
+
 class ChromaObject {
     private:
         std::string obj_typename;
     public:
         virtual ~ChromaObject() {}
-        std::string get_typename() const { return this->obj_typename; }
+        ChromaObject(const std::string& obj_typename) : obj_typename(obj_typename) { }
+        const std::string& get_typename() const { return this->obj_typename; }
+};
+
+class ChromaEffect : public ChromaObject {
+    public:
+        ChromaEffect() : ChromaObject("Effect") { }
+        ChromaEffect(const std::string& sub_typename) : ChromaObject(sub_typename + "Effect") { }
+        virtual void tick(const ChromaState& state) { }
+        virtual vec4 draw(float index, const ChromaState& state) const = 0;
 };
 
 class ChromaData {
@@ -57,6 +80,9 @@ class ChromaData {
         float get_float() const { return boost::get<float>(this->data); }
         std::string get_string() const { return boost::get<std::string>(this->data); }
         const std::shared_ptr<ChromaObject>& get_obj() const { return boost::get<std::shared_ptr<ChromaObject>>(this->data); }
+        template <class T>
+        const std::shared_ptr<T> get_obj() const { return std::dynamic_pointer_cast<T>(boost::get<std::shared_ptr<ChromaObject>>(this->data)); }
+        const std::shared_ptr<ChromaEffect> get_effect() const { return this->get_obj<ChromaEffect>(); }
         const std::vector<ChromaData>& get_list() const { return boost::get<std::vector<ChromaData>>(this->data); }
 };
 
@@ -77,6 +103,19 @@ struct ChromaEnvironment {
     // ChromaEnvironment(const ChromaEnvironment& other) : ret_val(ret_val), variables(variables) {
 
     // }
+};
+
+class ChromaController {
+    private:
+        bool running;
+        std::shared_ptr<ChromaEffect> _curr_effect;
+        
+    public:
+        // TODO: return some kind of status?
+        void set_effect(const std::shared_ptr<ChromaEffect>& effect) {
+            this->_curr_effect = effect;
+        }
+        void run(int fps, size_t pixel_length, void callback (const std::vector<vec4>&));
 };
 
 #endif

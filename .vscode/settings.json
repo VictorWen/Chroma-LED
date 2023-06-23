@@ -86,5 +86,6 @@
         "numbers": "cpp",
         "csetjmp": "cpp"
     },
-    "C_Cpp.default.compilerPath": "/usr/bin/g++"
+    "C_Cpp.default.compilerPath": "/usr/bin/g++",
+    "C_Cpp.errorSquiggles": "enabled"
 }
