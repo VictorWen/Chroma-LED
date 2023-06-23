@@ -20,7 +20,7 @@ class SlideEffect : public ChromaEffect {
     public:
         SlideEffect(const std::vector<ChromaData>& args) : ChromaEffect("slide") {
             this->effect = args[0].get_effect();
-            std::cout << this->effect->get_typename() << std::endl;
+            std::cerr << this->effect->get_typename() << std::endl;
             this->time = args[1].get_float();
             this->start = -1;
         }
@@ -93,10 +93,10 @@ int main() {
     try {
         command->parse(tokens, env);
     } catch (ParseException& e) {
-        printf("Error: %s\n", e.what());
+        fprintf(stderr, "Error: %s\n", e.what());
     }
 
-    printf("Done Parsing\n");
+    fprintf(stderr, "Done Parsing\n");
 
     PrintVisitor visitor;
     visitor.visit(*command);
@@ -112,7 +112,7 @@ int main() {
         .add_argument("TIME", Number, "time to finish a loop in seconds")
         .set_description("Slides an effect with looping");
 
-    printf("%s\n", slide_builder.get_help().c_str());
+    fprintf(stderr, "%s\n", slide_builder.get_help().c_str());
 
     cenv.functions["slide"] = move(slide_ptr);
 
@@ -120,7 +120,7 @@ int main() {
     auto rainbow_builder = *rainbow_ptr;
     rainbow_builder.set_description("Creates a rainbow along the entire strip");
 
-    printf("%s\n", rainbow_builder.get_help().c_str());
+    fprintf(stderr, "%s\n", rainbow_builder.get_help().c_str());
 
     cenv.functions["rainbow"] = move(rainbow_ptr);
 
@@ -128,13 +128,13 @@ int main() {
         Evaluator ev(cenv);
         ev.visit(*command);
         const ChromaData& ret_val = ev.get_env().ret_val;
-        std::cout << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
+        std::cerr << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
 
         ChromaController controller;
         controller.set_effect(ret_val.get_effect());
         controller.run(60, 150, callback);
     } catch (ChromaRuntimeException& e) {
-        printf("Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
+        fprintf(stderr, "Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
     }
 
     
