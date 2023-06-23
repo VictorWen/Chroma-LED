@@ -29,8 +29,8 @@ class SlideEffect : public ChromaEffect {
             this->effect->tick(state);
         }
         vec4 draw(float index, const ChromaState& state) const {
-            float offset = state.get_time_diff(start) / this->time;
-            index = fmod(index + offset, 1);
+            float offset = fmod(state.get_time_diff(start) / this->time, 1);
+            index = fmod(1 + index - offset, 1);
             return this->effect->draw(index, state);
         }
 };
@@ -98,9 +98,9 @@ int main() {
 
     fprintf(stderr, "Done Parsing\n");
 
-    PrintVisitor visitor;
-    visitor.visit(*command);
-    visitor.print();
+    // PrintVisitor visitor;
+    // visitor.visit(*command);
+    // visitor.print();
 
 
     ChromaEnvironment cenv;

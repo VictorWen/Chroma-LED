@@ -23,8 +23,8 @@ void ChromaController::run(int fps, size_t pixel_length, void callback (const st
         double delta_time = curr_time - start_time;
         start_time = curr_time;
         
-        state.delta_time = delta_time;
-        state.time += delta_time;
+        state.delta_time = delta_time / 1e6;
+        state.time += delta_time / 1e6;
 
         this->_curr_effect->tick(state);
         // TODO: refactor pixels and add multithreading
