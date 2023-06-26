@@ -35,7 +35,7 @@ void Evaluator::visit(const Expression &n) {
 void Evaluator::visit(const FuncDeclaration &n) {
     std::vector<std::string> var_names; 
     for (auto& node : n.get_var_names()) {
-        var_names.push_back(node->get_var_name());
+        var_names.push_back(node->get_name());
     }
     std::shared_ptr<ScriptFunction> func = std::make_shared<ScriptFunction>(n.get_func_name(), var_names, n.children[0]->clone());
     this->env.functions[n.get_func_name()] = func;
@@ -52,6 +52,11 @@ void Evaluator::visit(const SetVar &n) {
 }
 
 void Evaluator::visit(const InlineFuncCall& n) {
+    if (this->env.functions.count(n.get_func_name()) == 0) {
+        std::string error = "Function name " + n.get_func_name() + " is undefined";
+        throw ChromaRuntimeException(error.c_str());
+    }
+
     std::vector<ChromaData> args;
     for (auto& node : n.children) {
         this->env.ret_val = ChromaData();
@@ -66,6 +71,11 @@ void Evaluator::visit(const InlineFuncCall& n) {
 }
 
 void Evaluator::visit(const FuncCall& n) {
+    if (this->env.functions.count(n.get_func_name()) == 0) {
+        std::string error = "Function name " + n.get_func_name() + " is undefined";
+        throw ChromaRuntimeException(error.c_str());
+    }
+    
     std::vector<ChromaData> args;
     for (auto& node : n.children) {
         this->env.ret_val = ChromaData();
@@ -93,12 +103,18 @@ void Evaluator::visit(const ListNode& n) {
     this->env.ret_val = ChromaData(list);
 }
 
-void Evaluator::visit(const VarName& n) {
-    if (this->env.variables.count(n.get_var_name()) == 0) {
-        std::string error = "Variable name " + n.get_var_name() + " is undefined";
+void Evaluator::visit(const Identifier& n) {
+    if (this->env.functions.count(n.get_name()) > 0) {
+        std::vector<ChromaData> no_args;
+        this->env.ret_val = this->env.functions[n.get_name()]->call(no_args, this->env);
+    }
+    else if (this->env.variables.count(n.get_name()) > 0) {
+        this->env.ret_val = this->env.variables[n.get_name()];
+    }
+    else {
+        std::string error = "Name " + n.get_name() + " is undefined";
         throw ChromaRuntimeException(error.c_str());
     }
-    this->env.ret_val = this->env.variables[n.get_var_name()];
 }
 
 void Evaluator::visit(const StringLiteral& n) {

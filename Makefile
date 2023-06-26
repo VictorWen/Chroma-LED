@@ -4,18 +4,22 @@
 # Variables to control Makefile operation
  
 CC = g++
-CFLAGS = -Wall -g -O0
+CFLAGS = -Wall -g -O0 -I libraries/boost_1_82_0
+RM=rm -f
 
-DLCLIENT = wget
- 
+SRCS=src/main.cpp src/chroma.cpp src/chroma_script.cpp src/chromatic.cpp src/commands.cpp src/evaluator.cpp
+OBJS=$(subst .cpp,.o,$(SRCS))
+
 # ****************************************************
 # Targets needed to bring the executable up to date
 
-default: chroma
+all: chroma
 
-chroma: src/*.cpp src/*.h
-	$(CC) $(CFLAGS) -I libraries/boost_1_82_0 src/*.cpp src/*.h -o $@
+chroma: $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $@
 
-.PHONY: boost
-boost: 
-	cd libraries && $(DLCLIENT) https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz $(DLFLAGS) && tar -xvf boost_1_82_0.tar.gz && rm boost_1_82_0.tar.gz
+clean:
+	$(RM) $(OBJS)
+
+%.o: %.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<

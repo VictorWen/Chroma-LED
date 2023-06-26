@@ -35,7 +35,7 @@ class Evaluator : public NodeVisitor {
 
         void visit(const ListNode& n);
 
-        void visit(const VarName& n);
+        void visit(const Identifier& n);
         void visit(const StringLiteral& n);
         void visit(const NumberLiteral& n);
 };

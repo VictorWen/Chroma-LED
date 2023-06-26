@@ -84,7 +84,8 @@
         "regex": "cpp",
         "slist": "cpp",
         "numbers": "cpp",
-        "csetjmp": "cpp"
+        "csetjmp": "cpp",
+        "scoped_allocator": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++",
     "C_Cpp.errorSquiggles": "enabled"

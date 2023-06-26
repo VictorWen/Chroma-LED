@@ -24,7 +24,7 @@ enum TokenType {
 };
 
 struct ParseEnvironment {
-    std::unordered_set<std::string> func_names;
+    // std::unordered_set<std::string> func_names;
 };
 
 struct ParseToken {
@@ -80,18 +80,18 @@ class Expression : public ParseNode {
         void eval() {};
 };
 
-class VarName;
+class Identifier;
 
 class FuncDeclaration : public ParseNode {
     private:
         std::string func_name;
-        std::vector<std::unique_ptr<VarName>> var_names;
+        std::vector<std::unique_ptr<Identifier>> var_names;
     public:
         FuncDeclaration(const FuncDeclaration& other);
         FuncDeclaration() { } 
         std::unique_ptr<ParseNode> clone() { return std::make_unique<FuncDeclaration>(*this); }
         const std::string& get_func_name() const { return this->func_name; }
-        const std::vector<std::unique_ptr<VarName>>& get_var_names() const { return this->var_names; }
+        const std::vector<std::unique_ptr<Identifier>>& get_var_names() const { return this->var_names; }
         void parse(std::deque<ParseToken>& tokens, ParseEnvironment env);
         void accept(NodeVisitor& visitor) const;
         void eval() {};
@@ -147,24 +147,14 @@ class ListNode : public ParseNode {
         void eval() {};
 };
 
-class FuncName : public ParseNode {
-    public:
-        FuncName(const FuncName& other) : ParseNode(other) { }
-        FuncName() { } 
-        std::unique_ptr<ParseNode> clone() { return std::make_unique<FuncName>(*this); }
-        void parse(std::deque<ParseToken>& tokens, ParseEnvironment env);
-        void accept(NodeVisitor& visitor) const;
-        void eval() {};
-};
-
-class VarName : public ParseNode {
+class Identifier : public ParseNode {
     private:
-        std::string var_name;
+        std::string name;
     public:
-        VarName(const VarName& other) : ParseNode(other), var_name(other.var_name) { }
-        VarName() { } 
-        std::unique_ptr<ParseNode> clone() { return std::make_unique<VarName>(*this); }
-        const std::string& get_var_name() const { return this->var_name; }
+        Identifier(const Identifier& other) : ParseNode(other), name(other.name) { }
+        Identifier() { } 
+        std::unique_ptr<ParseNode> clone() { return std::make_unique<Identifier>(*this); }
+        const std::string& get_name() const { return this->name; } 
         void parse(std::deque<ParseToken>& tokens, ParseEnvironment env);
         void accept(NodeVisitor& visitor) const;
         void eval() {};
@@ -211,7 +201,7 @@ class NodeVisitor {
 
         virtual void visit(const ListNode& n) = 0;
 
-        virtual void visit(const VarName& n) = 0;
+        virtual void visit(const Identifier& n) = 0;
         virtual void visit(const StringLiteral& n) = 0;
         virtual void visit(const NumberLiteral& n) = 0;
 };
@@ -235,7 +225,7 @@ class PrintVisitor : public NodeVisitor {
 
         void visit(const ListNode& n);
 
-        void visit(const VarName& n);
+        void visit(const Identifier& n);
         void visit(const StringLiteral& n);
         void visit(const NumberLiteral& n);
 };

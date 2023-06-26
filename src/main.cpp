@@ -79,16 +79,14 @@ int main() {
     // tokens.push_back(ParseToken("y", IDENTIFIER));
     // tokens.push_back(ParseToken("]", LITERAL));
 
-    tokens.push_back(ParseToken("slide", IDENTIFIER));
-    tokens.push_back(ParseToken("(", LITERAL));
+    // tokens.push_back(ParseToken("slide", IDENTIFIER));
     tokens.push_back(ParseToken("rainbow", IDENTIFIER));
-    tokens.push_back(ParseToken(")", LITERAL));
-    tokens.push_back(ParseToken("10", NUMBER));
+    // tokens.push_back(ParseToken("10", NUMBER));
 
     std::unique_ptr<Command> command(new Command());
     ParseEnvironment env;
-    env.func_names.insert("slide");
-    env.func_names.insert("rainbow");
+    // env.func_names.insert("slide");
+    // env.func_names.insert("rainbow");
     
     try {
         command->parse(tokens, env);
@@ -98,9 +96,9 @@ int main() {
 
     fprintf(stderr, "Done Parsing\n");
 
-    // PrintVisitor visitor;
-    // visitor.visit(*command);
-    // visitor.print();
+    PrintVisitor visitor;
+    visitor.visit(*command);
+    visitor.print();
 
 
     ChromaEnvironment cenv;
@@ -130,9 +128,9 @@ int main() {
         const ChromaData& ret_val = ev.get_env().ret_val;
         std::cerr << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
 
-        ChromaController controller;
-        controller.set_effect(ret_val.get_effect());
-        controller.run(60, 150, callback);
+        // ChromaController controller;
+        // controller.set_effect(ret_val.get_effect());
+        // controller.run(60, 150, callback);
     } catch (ChromaRuntimeException& e) {
         fprintf(stderr, "Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
     }
