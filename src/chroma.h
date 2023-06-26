@@ -32,7 +32,7 @@ class ChromaRuntimeException : public std::exception {
 };
 
 enum ChromaType {
-    String, Number, Effect, Object, List, Null
+    STRING_TYPE, NUMBER_TYPE, EFFECT_TYPE, OBJECT_TYPE, LIST_TYPE, NULL_TYPE // TODO: change EFFECT_TYPE to OBJECT_TYPE
 };
 
 struct ChromaState {
@@ -67,13 +67,13 @@ class ChromaData {
         boost::variant <float, std::string, std::shared_ptr<ChromaObject>, std::vector<ChromaData>> data;
         ChromaType type;
     public:
-        ChromaData(int int_val) : data(static_cast<float>(int_val)), type(Number) {}
-        ChromaData(float float_val) :  data(float_val), type(Number) {}
-        ChromaData(const std::string& string_val) : data(string_val), type(String) {}
-        ChromaData(const std::shared_ptr<ChromaObject>& obj_val) : data(obj_val), type(Object) { }
-        ChromaData(ChromaObject* obj_val) : data(std::shared_ptr<ChromaObject>(obj_val)), type(Object) {}
-        ChromaData(const std::vector<ChromaData>& list_val) : data(list_val), type(List) {}
-        ChromaData() : data(std::shared_ptr<ChromaObject>(nullptr)), type(Null) {}
+        ChromaData(int int_val) : data(static_cast<float>(int_val)), type(NUMBER_TYPE) {}
+        ChromaData(float float_val) :  data(float_val), type(NUMBER_TYPE) {}
+        ChromaData(const std::string& string_val) : data(string_val), type(STRING_TYPE) {}
+        ChromaData(const std::shared_ptr<ChromaObject>& obj_val) : data(obj_val), type(OBJECT_TYPE) { }
+        ChromaData(ChromaObject* obj_val) : data(std::shared_ptr<ChromaObject>(obj_val)), type(OBJECT_TYPE) {}
+        ChromaData(const std::vector<ChromaData>& list_val) : data(list_val), type(LIST_TYPE) {}
+        ChromaData() : data(std::shared_ptr<ChromaObject>(nullptr)), type(NULL_TYPE) {}
         
         const ChromaType& get_type() const { return this->type; }
         
@@ -98,11 +98,6 @@ struct ChromaEnvironment {
     ChromaData ret_val;
     std::unordered_map<std::string, std::shared_ptr<ChromaFunction>> functions;
     std::unordered_map<std::string, ChromaData> variables;
-
-    // ChromaEnvironment() {}
-    // ChromaEnvironment(const ChromaEnvironment& other) : ret_val(ret_val), variables(variables) {
-
-    // }
 };
 
 class ChromaController {

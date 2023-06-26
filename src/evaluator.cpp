@@ -1,6 +1,5 @@
 #include "evaluator.h"
 
-#include <iostream>
 
 ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) {
     ChromaEnvironment scopedEnv = env;
@@ -40,14 +39,13 @@ void Evaluator::visit(const FuncDeclaration &n) {
     }
     std::shared_ptr<ScriptFunction> func = std::make_shared<ScriptFunction>(n.get_func_name(), var_names, n.children[0]->clone());
     this->env.functions[n.get_func_name()] = func;
-    std::cerr << n.get_func_name() << ": " << this->env.functions.count(n.get_func_name()) << std::endl;
     this->env.ret_val = ChromaData();
 }
 
 void Evaluator::visit(const SetVar &n) {
     this->env.ret_val = ChromaData();
     n.children[0]->accept(*this);
-    if (this->env.ret_val.get_type() == Null) {
+    if (this->env.ret_val.get_type() == NULL_TYPE) {
         std::string error = "Expected a return value from expression in set var";
         throw ChromaRuntimeException(error.c_str());
     }
@@ -65,7 +63,7 @@ void Evaluator::visit(const InlineFuncCall& n) {
     for (auto& node : n.children) {
         this->env.ret_val = ChromaData();
         node->accept(*this);
-        if (this->env.ret_val.get_type() == Null) {
+        if (this->env.ret_val.get_type() == NULL_TYPE) {
             std::string error = "Expected a return value from expression in inline function call";
             throw ChromaRuntimeException(error.c_str());
         }
@@ -84,7 +82,7 @@ void Evaluator::visit(const FuncCall& n) {
     for (auto& node : n.children) {
         this->env.ret_val = ChromaData();
         node->accept(*this);
-        if (this->env.ret_val.get_type() == Null) {
+        if (this->env.ret_val.get_type() == NULL_TYPE) {
             std::string error = "Expected a return value from expression in function call";
             throw ChromaRuntimeException(error.c_str());
         }
@@ -98,7 +96,7 @@ void Evaluator::visit(const ListNode& n) {
     for (auto& node : n.children) {
         this->env.ret_val = ChromaData();
         node->accept(*this);
-        if (this->env.ret_val.get_type() == Null) {
+        if (this->env.ret_val.get_type() == NULL_TYPE) {
             std::string error = "Expected a return value from expression in list";
             throw ChromaRuntimeException(error.c_str());
         }

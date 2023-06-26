@@ -3,12 +3,28 @@
 
 #include "chroma_script.h"
 
+/*
+ChromaScript grammar
+
+command ::= statement | func_decl | set_var
+statement ::= expression_no_id | inline_func_call | IDENTIFIER
+expression_no_id ::= func_call | list | STRING | NUMBER
+expression :: = func_call | list | IDENTIFIER | STRING | NUMBER
+
+func_decl ::= 'func' IDENTIFIER IDENTIFIER* '=' statement
+set_var ::= 'let' IDENTIFIER '=' expression
+
+inline_func_call ::= IDENTIFIER expression+
+func_call :: = '(' IDENTIFIER  expression* ')'
+
+list ::= '[' expression* ']'
+*/
 
 void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output) {
     std::regex keyword_regex(R"(^(let|func))");
-    std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))");
+    std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))"); // positive or negative, without or without decimal point, with at least one digit
     std::regex string_regex(R"(^\".*\")");
-    std::regex identifier_regex(R"(^[A-Za-z_]+\w*)");
+    std::regex identifier_regex(R"(^[A-Za-z_]+\w*)"); // alphabetic character followed by any number of alphanumerics
     std::regex white_space_regex(R"(^\s+)");
 
     size_t index = 0;
@@ -95,10 +111,6 @@ void Command::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
 
 void Command::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
-}
-
-void Command::eval() {
-
 }
 
 void Statement::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) { 
