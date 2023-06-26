@@ -33,6 +33,13 @@ struct ParseToken {
     TokenType type;
 };
 
+class Tokenizer {
+    public:
+        Tokenizer() { }
+        virtual ~Tokenizer() { }
+        virtual void tokenize(std::string input, std::deque<ParseToken>& output);
+};
+
 class ParseNode {
     public:
         std::vector<std::unique_ptr<ParseNode>> children;
@@ -210,7 +217,7 @@ class PrintVisitor : public NodeVisitor {
     private:
         std::vector<std::string> output; 
     public:
-        void print() const;
+        void print(std::FILE* out_file = stderr) const;
         void expand_tree(const ParseNode& n, const std::string name);
         
         void visit(const Command& n);

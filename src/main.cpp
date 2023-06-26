@@ -53,53 +53,57 @@ void callback(const std::vector<vec4>& pixels) {
     fwrite(buffer, 16, n, stdout);
 }
 
-
-int main() {
-    // for (std::string line; std::getline(std::cin, line);) {
-    //     std::cout << line << std::endl;
-    // }
-
+void process_input(const std::string& input, ChromaEnvironment& cenv, const bool verbose=false) {
     std::deque<ParseToken> tokens;
-    // tokens.push_back(ParseToken("func", LITERAL));
-    // tokens.push_back(ParseToken("a", IDENTIFIER));
-    // tokens.push_back(ParseToken("x", IDENTIFIER));
-    // tokens.push_back(ParseToken("y", IDENTIFIER));
-    // tokens.push_back(ParseToken("=", LITERAL));
-    // tokens.push_back(ParseToken("add", IDENTIFIER));
-    // tokens.push_back(ParseToken("x", IDENTIFIER));
-    // tokens.push_back(ParseToken("(", LITERAL));
-    // tokens.push_back(ParseToken("sub", IDENTIFIER));
-    // tokens.push_back(ParseToken("y", IDENTIFIER));
-    // tokens.push_back(ParseToken("x", IDENTIFIER));
-    // tokens.push_back(ParseToken(")", LITERAL));
+    Tokenizer tokenizer;
 
-    // tokens.push_back(ParseToken("[", LITERAL));
-    // tokens.push_back(ParseToken("a", IDENTIFIER));
-    // tokens.push_back(ParseToken("x", IDENTIFIER));
-    // tokens.push_back(ParseToken("y", IDENTIFIER));
-    // tokens.push_back(ParseToken("]", LITERAL));
+    tokenizer.tokenize(input, tokens);
 
-    // tokens.push_back(ParseToken("slide", IDENTIFIER));
-    tokens.push_back(ParseToken("rainbow", IDENTIFIER));
-    // tokens.push_back(ParseToken("10", NUMBER));
-
+    if (verbose) {
+        std::cerr << tokens.size() << std::endl;
+        for (auto& token : tokens) {
+            std::cerr << token.val << " ";
+        }
+        std::cerr << std::endl;
+    }
+    
     std::unique_ptr<Command> command(new Command());
     ParseEnvironment env;
-    // env.func_names.insert("slide");
-    // env.func_names.insert("rainbow");
-    
+
     try {
         command->parse(tokens, env);
     } catch (ParseException& e) {
         fprintf(stderr, "Error: %s\n", e.what());
     }
 
-    fprintf(stderr, "Done Parsing\n");
+    if (verbose) {
+        fprintf(stderr, "Done Parsing\n");
 
-    PrintVisitor visitor;
-    visitor.visit(*command);
-    visitor.print();
+        PrintVisitor visitor;
+        visitor.visit(*command);
+        visitor.print(stderr);
+    }
 
+    try {
+        Evaluator ev(cenv);
+        ev.visit(*command);
+        const ChromaData& ret_val = ev.get_env().ret_val;
+
+        if (verbose) {
+            fprintf(stderr, "Done Evaluating\n");
+            if (ret_val.get_type() != Null)
+                std::cerr << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
+        }
+    } catch (ChromaRuntimeException& e) {
+        fprintf(stderr, "Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
+    }
+}
+
+
+int main() {
+    // for (std::string line; std::getline(std::cin, line);) {
+    //     std::cout << line << std::endl;
+    // }
 
     ChromaEnvironment cenv;
 
@@ -122,35 +126,22 @@ int main() {
 
     cenv.functions["rainbow"] = move(rainbow_ptr);
 
-    try {
-        Evaluator ev(cenv);
-        ev.visit(*command);
-        const ChromaData& ret_val = ev.get_env().ret_val;
-        std::cerr << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
+    process_input("let r = rainbow", cenv, true);
+    process_input("func slide10 x = slide x 10", cenv, true);
+    process_input("slide10 r", cenv, true);
 
-        // ChromaController controller;
-        // controller.set_effect(ret_val.get_effect());
-        // controller.run(60, 150, callback);
+    try {
+    //     Evaluator ev(cenv);
+    //     ev.visit(*command);
+    //     const ChromaData& ret_val = ev.get_env().ret_val;
+    //     std::cerr << ret_val.get_type() << " " << ret_val.get_obj()->get_typename() << std::endl;
+
+        ChromaController controller;
+        controller.set_effect(cenv.ret_val.get_effect());
+        controller.run(60, 150, callback);
     } catch (ChromaRuntimeException& e) {
         fprintf(stderr, "Error: %s\n", e.what()); //TODO: something about free(): invalid pointer??
     }
 
-    
-
-    // Shader *ex = new ExampleShader();
-
-    // while (true) {
-    //     ex->tick(time);
-        
-    //     for (int i = 0; i < n; i++) {
-    //         ex->draw(time, ((float) i)/n, pixels[i]);
-    //     }
-    //     fwrite(pixels, 16, 150, stdout);
-
-    //     usleep(10000);
-    //     time += 0.01;
-    // }
-
-    // delete ex;
     return 0;
 }

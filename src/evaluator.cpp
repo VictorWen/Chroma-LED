@@ -1,5 +1,6 @@
 #include "evaluator.h"
 
+#include <iostream>
 
 ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) {
     ChromaEnvironment scopedEnv = env;
@@ -39,6 +40,8 @@ void Evaluator::visit(const FuncDeclaration &n) {
     }
     std::shared_ptr<ScriptFunction> func = std::make_shared<ScriptFunction>(n.get_func_name(), var_names, n.children[0]->clone());
     this->env.functions[n.get_func_name()] = func;
+    std::cerr << n.get_func_name() << ": " << this->env.functions.count(n.get_func_name()) << std::endl;
+    this->env.ret_val = ChromaData();
 }
 
 void Evaluator::visit(const SetVar &n) {
@@ -49,6 +52,7 @@ void Evaluator::visit(const SetVar &n) {
         throw ChromaRuntimeException(error.c_str());
     }
     this->env.variables[n.get_var_name()] =  this->env.ret_val;
+    this->env.ret_val = ChromaData();
 }
 
 void Evaluator::visit(const InlineFuncCall& n) {

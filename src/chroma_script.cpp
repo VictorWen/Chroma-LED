@@ -1,5 +1,47 @@
-#include "chroma_script.h"
 #include <iostream>
+#include <regex>
+
+#include "chroma_script.h"
+
+
+void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output) {
+    std::regex keyword_regex(R"(^(let|func))");
+    std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))");
+    std::regex string_regex(R"(^\".*\")");
+    std::regex identifier_regex(R"(^[A-Za-z_]+\w*)");
+    std::regex white_space_regex(R"(^\s+)");
+
+    size_t index = 0;
+
+    while (index < input.size()) {
+        std::smatch match;
+        std::string substr = input.substr(index);
+        if (regex_search(substr, match, keyword_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), LITERAL));
+        }
+        else if (regex_search(substr, match, number_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), NUMBER));
+        }
+        else if (regex_search(substr, match, string_regex)) {
+            index += match.length();
+            std::string found_string = match.str();
+            output.push_back(ParseToken(found_string.substr(1, found_string.size() - 2), STRING));
+        }
+        else if (regex_search(substr, match, identifier_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), IDENTIFIER));
+        }
+        else if (regex_search(substr, match, white_space_regex)) {
+            index += match.length();
+        }
+        else {
+            output.push_back(ParseToken(input.substr(index, 1), LITERAL));
+            index += 1;
+        }
+    }
+}
 
 
 void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
@@ -7,9 +49,9 @@ void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
         tokens.pop_front();
         return;
     }
-    std::string error = "Expected literal " + literal;
+    std::string error = "Expected literal '" + literal + "'";
     if (!tokens.empty())
-        error += ", got " + tokens.front().val;
+        error += ", got '" + tokens.front().val + "'";
     throw ParseException(error.c_str());
 }
 
@@ -21,7 +63,7 @@ std::string consume_identifier(std::deque<ParseToken>& tokens, std::string want)
     }
     std::string error = "Expected identifier for " + want;
     if (!tokens.empty())
-        error += ", got " + tokens.front().val;
+        error += ", got '" + tokens.front().val + "'";
     throw ParseException(error.c_str());
 }
 
@@ -77,6 +119,10 @@ void Statement::accept(NodeVisitor& visitor) const {
 }
 
 void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
+    if (tokens.empty()) {
+        throw ParseException("Unfinished expression, expected more tokens");
+    }
+
     if (tokens.front().type == LITERAL && tokens.front().val == "(") {
         std::unique_ptr<ParseNode> next(new FuncCall());
         next->parse(tokens, env);
@@ -101,6 +147,10 @@ void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
         std::unique_ptr<ParseNode> next(new NumberLiteral());
         next->parse(tokens, env);
         this->children.push_back(move(next));
+    }
+    else {
+        std::string error = "Unfinished expression, got literal '" + tokens.front().val + "'";
+        throw ParseException(error.c_str());
     }
 }
 
@@ -295,8 +345,8 @@ void PrintVisitor::visit(const ListNode& n) {
     this->expand_tree(n, "ListNode");
 }
 
-void PrintVisitor::print() const {
+void PrintVisitor::print(std::FILE* out_file) const {
     for (size_t i = 0; i < this->output.size(); i++) {
-        printf("%s\n", output[i].c_str());
+        fprintf(out_file, "%s\n", output[i].c_str());
     }
 }
