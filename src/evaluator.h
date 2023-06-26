@@ -17,11 +17,11 @@ class ScriptFunction : public ChromaFunction {
 
 class Evaluator : public NodeVisitor {
     private:
-        ChromaEnvironment env;
+        ChromaEnvironment& env;
     public:
         const ChromaEnvironment& get_env() const { return this->env; }
 
-        Evaluator(const ChromaEnvironment& env) : env(env) {}
+        Evaluator(ChromaEnvironment& env) : env(env) {}
 
         void visit(const Command& n);
         void visit(const Statement& n);
@@ -35,7 +35,7 @@ class Evaluator : public NodeVisitor {
 
         void visit(const ListNode& n);
 
-        void visit(const VarName& n);
+        void visit(const Identifier& n);
         void visit(const StringLiteral& n);
         void visit(const NumberLiteral& n);
 };

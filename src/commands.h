@@ -7,8 +7,6 @@
 
 #include "chroma.h"
 
-#include <iostream>
-
 
 class ArgumentVerifier {
     public:

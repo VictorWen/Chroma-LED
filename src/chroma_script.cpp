@@ -1,5 +1,64 @@
-#include "chroma_script.h"
 #include <iostream>
+#include <regex>
+
+#include "chroma_script.h"
+
+/*
+ChromaScript grammar
+
+command ::= statement | func_decl | set_var
+statement ::= expression_no_id | inline_func_call | IDENTIFIER
+expression_no_id ::= func_call | list | STRING | NUMBER
+expression :: = func_call | list | IDENTIFIER | STRING | NUMBER
+
+func_decl ::= 'func' IDENTIFIER IDENTIFIER* '=' statement
+set_var ::= 'let' IDENTIFIER '=' expression
+
+inline_func_call ::= IDENTIFIER expression+
+func_call :: = '(' IDENTIFIER  expression* ')'
+
+list ::= '[' expression* ']'
+*/
+
+void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output) {
+    std::regex keyword_regex(R"(^(let|func))");
+    std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))"); // positive or negative, without or without decimal point, with at least one digit
+    std::regex string_regex(R"(^\".*\")");
+    std::regex identifier_regex(R"(^[A-Za-z_]+\w*)"); // alphabetic character followed by any number of alphanumerics
+    std::regex white_space_regex(R"(^\s+)");
+
+    size_t index = 0;
+
+    while (index < input.size()) {
+        std::smatch match;
+        std::string substr = input.substr(index);
+        if (regex_search(substr, match, keyword_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), LITERAL));
+        }
+        else if (regex_search(substr, match, number_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), NUMBER));
+        }
+        else if (regex_search(substr, match, string_regex)) {
+            index += match.length();
+            std::string found_string = match.str();
+            output.push_back(ParseToken(found_string.substr(1, found_string.size() - 2), STRING));
+        }
+        else if (regex_search(substr, match, identifier_regex)) {
+            index += match.length();
+            output.push_back(ParseToken(match.str(), IDENTIFIER));
+        }
+        else if (regex_search(substr, match, white_space_regex)) {
+            index += match.length();
+        }
+        else {
+            output.push_back(ParseToken(input.substr(index, 1), LITERAL));
+            index += 1;
+        }
+    }
+}
+
 
 
 void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
@@ -7,9 +66,9 @@ void eat_literal(std::deque<ParseToken>& tokens, std::string literal) {
         tokens.pop_front();
         return;
     }
-    std::string error = "Expected literal " + literal;
+    std::string error = "Expected literal '" + literal + "'";
     if (!tokens.empty())
-        error += ", got " + tokens.front().val;
+        error += ", got '" + tokens.front().val + "'";
     throw ParseException(error.c_str());
 }
 
@@ -21,15 +80,15 @@ std::string consume_identifier(std::deque<ParseToken>& tokens, std::string want)
     }
     std::string error = "Expected identifier for " + want;
     if (!tokens.empty())
-        error += ", got " + tokens.front().val;
+        error += ", got '" + tokens.front().val + "'";
     throw ParseException(error.c_str());
 }
 
 FuncDeclaration::FuncDeclaration(const FuncDeclaration& other) : 
     ParseNode(other), func_name(other.func_name) { 
     for (const auto& var_name : other.var_names) {
-        VarName* copied_var_name = static_cast<VarName*>(var_name->clone().release());
-        this->var_names.push_back(std::unique_ptr<VarName>(copied_var_name));
+        Identifier* copied_var_name = static_cast<Identifier*>(var_name->clone().release());
+        this->var_names.push_back(std::unique_ptr<Identifier>(copied_var_name));
     }
 }
 
@@ -55,12 +114,8 @@ void Command::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
 }
 
-void Command::eval() {
-
-}
-
 void Statement::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) { 
-    if (!tokens.empty() && tokens.front().type == IDENTIFIER && env.func_names.count(tokens.front().val) > 0) {
+    if (!tokens.empty() && tokens.front().type == IDENTIFIER && tokens.size() > 1) {
         std::unique_ptr<ParseNode> next(new InlineFuncCall());
         next->parse(tokens, env);
         this->children.push_back(move(next));
@@ -77,6 +132,10 @@ void Statement::accept(NodeVisitor& visitor) const {
 }
 
 void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
+    if (tokens.empty()) {
+        throw ParseException("Unfinished expression, expected more tokens");
+    }
+
     if (tokens.front().type == LITERAL && tokens.front().val == "(") {
         std::unique_ptr<ParseNode> next(new FuncCall());
         next->parse(tokens, env);
@@ -88,7 +147,7 @@ void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
         this->children.push_back(move(next));
     }
     else if (tokens.front().type == IDENTIFIER) {
-        std::unique_ptr<ParseNode> next(new VarName());
+        std::unique_ptr<ParseNode> next(new Identifier());
         next->parse(tokens, env);
         this->children.push_back(move(next));
     }
@@ -102,6 +161,10 @@ void Expression::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
         next->parse(tokens, env);
         this->children.push_back(move(next));
     }
+    else {
+        std::string error = "Unfinished expression, got literal '" + tokens.front().val + "'";
+        throw ParseException(error.c_str());
+    }
 }
 
 void Expression::accept(NodeVisitor& visitor) const {
@@ -112,10 +175,10 @@ void FuncDeclaration::parse(std::deque<ParseToken>& tokens, ParseEnvironment env
     eat_literal(tokens, "func");
     
     this->func_name = consume_identifier(tokens, "function name");
-    env.func_names.insert(this->func_name);
+    // env.func_names.insert(this->func_name);
     
     while (!tokens.empty() && !(tokens.front().type == LITERAL && tokens.front().val == "=")) {
-        std::unique_ptr<VarName> next(new VarName());
+        std::unique_ptr<Identifier> next(new Identifier());
         next->parse(tokens, env);
         this->var_names.push_back(move(next));
     }
@@ -142,8 +205,8 @@ void SetVar::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     next->parse(tokens, env);
     this->children.push_back(move(next));
 
-    if (env.func_names.count(this->var_name) > 0)
-        env.func_names.erase(this->var_name);
+    // if (env.func_names.count(this->var_name) > 0)
+        // env.func_names.erase(this->var_name);
 }
 
 void SetVar::accept(NodeVisitor& visitor) const {
@@ -152,10 +215,10 @@ void SetVar::accept(NodeVisitor& visitor) const {
 
 void InlineFuncCall::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     this->func_name = consume_identifier(tokens, "function name");
-    // if (env.func_names.count(this->func_name) == 0) {
-    //     std::string error = this->func_name + " is not a function";
-    //     throw ParseException(error.c_str());
-    // }
+
+    std::unique_ptr<ParseNode> next(new Expression());
+    next->parse(tokens, env);
+    this->children.push_back(move(next));
 
     std::unique_ptr<ParseNode> next(new Expression());
     next->parse(tokens, env);
@@ -176,10 +239,6 @@ void FuncCall::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
     eat_literal(tokens, "(");
     
     this->func_name = consume_identifier(tokens, "function name");
-    // if (env.func_names.count(this->func_name) == 0) {
-    //     std::string error = this->func_name + " is not a function";
-    //     throw ParseException(error.c_str());
-    // }
 
     while (!tokens.empty() && !(tokens.front().type == LITERAL && tokens.front().val == ")")) {
         std::unique_ptr<ParseNode> next(new Expression());
@@ -210,15 +269,11 @@ void ListNode::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
 }
 
-void VarName::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
-    this->var_name = consume_identifier(tokens, "variable name");
-    if (env.func_names.count(this->var_name) > 0) {
-        std::string error = "Variable name " + this->var_name + " already in use by a function";
-        throw ParseException(error.c_str());
-    }
+void Identifier::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
+    this->name = consume_identifier(tokens, "this");
 }
 
-void VarName::accept(NodeVisitor& visitor) const {
+void Identifier::accept(NodeVisitor& visitor) const {
     visitor.visit(*this);
 }
 
@@ -268,7 +323,7 @@ void PrintVisitor::visit(const Command& n) {
 }
 
 void PrintVisitor::visit(const Statement& n) {
-    this->expand_tree(n, "Statment");
+    this->expand_tree(n, "Statement");
 }
 
 void PrintVisitor::visit(const InlineFuncCall& n) {
@@ -287,8 +342,8 @@ void PrintVisitor::visit(const FuncCall& n) {
     this->expand_tree(n, "FuncCall (" + n.get_func_name() + ")");
 }
 
-void PrintVisitor::visit(const VarName& n) {
-    this->expand_tree(n, "VarName (" + n.get_var_name() + ")");
+void PrintVisitor::visit(const Identifier& n) {
+    this->expand_tree(n, "Identifier (" + n.get_name() + ")");
 }
 
 void PrintVisitor::visit(const StringLiteral& n) {
@@ -307,8 +362,8 @@ void PrintVisitor::visit(const ListNode& n) {
     this->expand_tree(n, "ListNode");
 }
 
-void PrintVisitor::print() const {
+void PrintVisitor::print(std::FILE* out_file) const {
     for (size_t i = 0; i < this->output.size(); i++) {
-        printf("%s\n", output[i].c_str());
+        fprintf(out_file, "%s\n", output[i].c_str());
     }
 }
