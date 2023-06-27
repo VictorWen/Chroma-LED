@@ -201,7 +201,7 @@ void SetVar::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
 
     eat_literal(tokens, "=");
 
-    std::unique_ptr<ParseNode> next(new Expression());
+    std::unique_ptr<ParseNode> next(new Statement());
     next->parse(tokens, env);
     this->children.push_back(move(next));
 
@@ -291,10 +291,10 @@ void NumberLiteral::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) 
     }
     try {
         this->val = std::stof(tokens.front().val);
-    } catch (std::invalid_argument e) {
+    } catch (std::invalid_argument const& e) {
         std::string error = "Failed to parse " + tokens.front().val + " as a number";
         throw ParseException(error.c_str());
-    } catch (std::out_of_range e) {
+    } catch (std::out_of_range const& e) {
         std::string error = "Failed to parse " + tokens.front().val + " as a number, too big";
         throw ParseException(error.c_str());
     }

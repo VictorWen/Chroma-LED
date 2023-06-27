@@ -62,6 +62,10 @@ void process_input(const std::string& input, ChromaEnvironment& cenv, const bool
 
     try {
         command->parse(tokens, env);
+        if (!tokens.empty()) {
+            std::string error = "Got too many tokens, unable to parse '" + tokens.front().val + "'";
+            throw ParseException(error.c_str());
+        }
     } catch (ParseException& e) {
         fprintf(stderr, "Error: %s\n", e.what());
     }
