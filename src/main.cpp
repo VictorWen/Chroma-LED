@@ -121,7 +121,8 @@ int main() {
     process_input("func slide10 x = slide x ten", cenv, true);
     process_input("let RED = rgb 255 0 0", cenv, true);
     process_input("let BLUE = rgb 0 0 255", cenv, true);
-    process_input("split RED (gradient RED BLUE)", cenv, true);
+    process_input("let p = split RED (gradient RED BLUE)", cenv, true);
+    process_input("gradient (slide10 p) (slide10 r)", cenv, true);
 
     try {
         ChromaController controller;
