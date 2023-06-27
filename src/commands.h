@@ -31,12 +31,12 @@ class CommandArgument {
         std::shared_ptr<ArgumentVerifier> verifier;
     public:
         CommandArgument(std::string name, ChromaType type, std::string descr, std::shared_ptr<ArgumentVerifier> verifier):
-            name(name), type(type), description(descr), verifier(verifier) { }
+            name(name), type(type), description(descr), verifier(verifier) { } // TODO: have a constructor that uses a string for type implying object base
         std::string get_name() const { 
             return this->name;
         }
         std::string to_string() const {
-            const std::string types[] { "string", "number", "effect", "object", "list" };
+            const std::string types[] { "string", "number", "object", "list" };
             return this->name + " (" + types[this->type] + ") - " + this->description; 
         }
         bool verify(const ChromaData& arg) { return this->verifier->verify(arg); }
@@ -91,14 +91,15 @@ template <class T>
 ChromaData ChromaCommand<T>::call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) {
     // TODO: optional args
     if (this->arguments.size() < args.size()) {
-        throw ChromaRuntimeException("Command received too many arguments"); //TODO: make dynamic
+        std::string error = "Command received too many arguments, got " + std::to_string(args.size()) + " need " + std::to_string(this->arguments.size());
+        throw ChromaRuntimeException(error.c_str());
     }
 
     for (size_t i = 0; i < args.size(); i++) {
         CommandArgument& cmd_arg = this->arguments[i];
         const ChromaData& arg_val = args[i];
         if (!cmd_arg.verify(arg_val)) {
-            throw ChromaRuntimeException("Invalid argument type"); // TODO: make dynamic
+            throw ChromaRuntimeException("Invalid argument type"); // TODO: make dynamic?
         }
     }
 

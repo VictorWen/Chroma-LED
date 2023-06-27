@@ -220,10 +220,6 @@ void InlineFuncCall::parse(std::deque<ParseToken>& tokens, ParseEnvironment env)
     next->parse(tokens, env);
     this->children.push_back(move(next));
 
-    std::unique_ptr<ParseNode> next(new Expression());
-    next->parse(tokens, env);
-    this->children.push_back(move(next));
-
     while (!tokens.empty()) {
         std::unique_ptr<ParseNode> next(new Expression());
         next->parse(tokens, env);
@@ -293,8 +289,15 @@ void NumberLiteral::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) 
     if (tokens.empty()) {
         throw ParseException("Expected a number");
     }
-    //TODO: Insert num check!
-    this->val = std::stof(tokens.front().val);
+    try {
+        this->val = std::stof(tokens.front().val);
+    } catch (std::invalid_argument e) {
+        std::string error = "Failed to parse " + tokens.front().val + " as a number";
+        throw ParseException(error.c_str());
+    } catch (std::out_of_range e) {
+        std::string error = "Failed to parse " + tokens.front().val + " as a number, too big";
+        throw ParseException(error.c_str());
+    }
     tokens.pop_front();
 }
 

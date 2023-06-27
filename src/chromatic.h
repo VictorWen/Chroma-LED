@@ -19,6 +19,14 @@ struct vec4 {
 		return vec4(x+other, y+other, z+other, w+other);
 	}
 
+	vec4 operator*(const float other) const {
+		return vec4(x*other, y*other, z*other, w*other);
+	}
+
+	vec4 operator+(const vec4& other) const {
+		return vec4(x + other.x, y + other.y, z + other.z, w + other.w);
+	}
+
 	vec4 operator-() const {
 		return vec4(-x, -y, -z, -w);
 	}

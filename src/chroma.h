@@ -32,7 +32,7 @@ class ChromaRuntimeException : public std::exception {
 };
 
 enum ChromaType {
-    STRING_TYPE, NUMBER_TYPE, EFFECT_TYPE, OBJECT_TYPE, LIST_TYPE, NULL_TYPE // TODO: change EFFECT_TYPE to OBJECT_TYPE
+    STRING_TYPE, NUMBER_TYPE, OBJECT_TYPE, LIST_TYPE, NULL_TYPE
 };
 
 struct ChromaState {
@@ -78,6 +78,7 @@ class ChromaData {
         const ChromaType& get_type() const { return this->type; }
         
         float get_float() const { return boost::get<float>(this->data); }
+        int get_int() const { return static_cast<int>(boost::get<float>(this->data)); }
         std::string get_string() const { return boost::get<std::string>(this->data); }
         const std::shared_ptr<ChromaObject>& get_obj() const { return boost::get<std::shared_ptr<ChromaObject>>(this->data); }
         template <class T>

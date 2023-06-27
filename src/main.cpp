@@ -12,6 +12,26 @@
 #include "evaluator.h"
 #include "effects.h"
 
+const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
+    .add_argument("R", NUMBER_TYPE, "red value 0-255")
+    .add_argument("G", NUMBER_TYPE, "green value 0-255")
+    .add_argument("B", NUMBER_TYPE, "blue value 0-255")
+    .set_description("Displays a color with the given RGB values");
+const auto SPLIT_CMD = CommandBuilder<SplitEffect>("split")
+    .add_argument("EFFECT1", OBJECT_TYPE, "effect to split first")
+    .add_argument("EFFECT2", OBJECT_TYPE, "effect to split second")
+    .set_description("Splits the strip in half with two effects on each");
+const auto GRADIENT_CMD = CommandBuilder<GradientEffect>("gradient")
+    .add_argument("EFFECT1", OBJECT_TYPE, "effect to start with")
+    .add_argument("EFFECT2", OBJECT_TYPE, "effect to gradually transition to")
+    .set_description("Gradually transition from one effect to the other across the strip");
+const auto RAINBOW_CMD = CommandBuilder<RainbowEffect>("rainbow")
+    .set_description("Creates a rainbow along the entire strip");
+const auto SLIDE_CMD = CommandBuilder<SlideEffect>("slide")
+    .add_argument("EFFECT", OBJECT_TYPE, "effect to slide around the strip") //TODO: have an effect verifier
+    .add_argument("TIME", NUMBER_TYPE, "time to finish a loop in seconds")
+    .set_description("Slides an effect with looping");
+
 
 void callback(const std::vector<vec4>& pixels) {
     const int n = 150;
@@ -77,24 +97,20 @@ int main() {
 
     ChromaEnvironment cenv;
 
-    auto slide_ptr = std::make_unique<CommandBuilder<SlideEffect>>("slide");
-    auto& slide_builder = *slide_ptr;
-    slide_builder
-        .add_argument("EFFECT", OBJECT_TYPE, "effect to slide around the strip")
-        .add_argument("TIME", NUMBER_TYPE, "time to finish a loop in seconds")
-        .set_description("Slides an effect with looping");
+    fprintf(stderr, "%s\n", RGB_CMD.get_help().c_str());
+    cenv.functions["rgb"] = std::make_unique<CommandBuilder<ColorEffect>>(RGB_CMD);
 
-    fprintf(stderr, "%s\n", slide_builder.get_help().c_str());
+    fprintf(stderr, "%s\n", SPLIT_CMD.get_help().c_str());
+    cenv.functions["split"] = std::make_unique<CommandBuilder<SplitEffect>>(SPLIT_CMD);
 
-    cenv.functions["slide"] = move(slide_ptr);
+    fprintf(stderr, "%s\n", GRADIENT_CMD.get_help().c_str());
+    cenv.functions["gradient"] = std::make_unique<CommandBuilder<GradientEffect>>(GRADIENT_CMD);
 
-    auto rainbow_ptr = std::make_unique<CommandBuilder<RainbowEffect>>("rainbow");
-    auto rainbow_builder = *rainbow_ptr;
-    rainbow_builder.set_description("Creates a rainbow along the entire strip");
+    fprintf(stderr, "%s\n", RAINBOW_CMD.get_help().c_str());
+    cenv.functions["rainbow"] = std::make_unique<CommandBuilder<RainbowEffect>>(RAINBOW_CMD);
 
-    fprintf(stderr, "%s\n", rainbow_builder.get_help().c_str());
-
-    cenv.functions["rainbow"] = move(rainbow_ptr);
+    fprintf(stderr, "%s\n", SLIDE_CMD.get_help().c_str());
+    cenv.functions["slide"] = std::make_unique<CommandBuilder<SlideEffect>>(SLIDE_CMD);
 
     process_input("let r = rainbow", cenv, true);
     process_input("let ten = 10", cenv, true);
