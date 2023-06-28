@@ -24,6 +24,7 @@ class SplitEffect : public ChromaEffect {
         std::vector<std::shared_ptr<ChromaEffect>> effects;
     public:
         SplitEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state) { for (auto& effect : this->effects) effect->tick(state); }
         vec4 draw(float index, const ChromaState& state) const;
 };
 
@@ -32,6 +33,7 @@ class GradientEffect : public ChromaEffect {
         std::vector<std::shared_ptr<ChromaEffect>> effects;
     public:
         GradientEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state) { for (auto& effect : this->effects) effect->tick(state); }
         vec4 draw(float index, const ChromaState& state) const;
 };
 
@@ -46,5 +48,99 @@ class SlideEffect : public ChromaEffect {
         vec4 draw(float index, const ChromaState& state) const;
 };
 
+class WipeEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+    public:
+        WipeEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+
+class BlinkEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+        bool on;
+    public:
+        BlinkEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class BlinkFadeEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+        float transition;
+    public:
+        BlinkFadeEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class WormEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+        float cutoff;
+    public:
+        WormEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class FadeInEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+        float transition;
+    public:
+        FadeInEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class FadeOutEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float time;
+        float start;
+        float transition;
+    public:
+        FadeOutEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class WaveEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float period;
+        float wavelength;
+        float start;
+    public:
+        WaveEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
+
+class WheelEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float period;
+        float start;
+    public:
+        WheelEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state);
+        vec4 draw(float index, const ChromaState& state) const;
+};
 
 #endif

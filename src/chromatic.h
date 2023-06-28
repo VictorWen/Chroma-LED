@@ -1,6 +1,8 @@
 #ifndef CHROMATIC_H
 #define CHROMATIC_H
 
+#include <string>
+
 struct vec3 {
 	float x, y, z;
 };
@@ -29,6 +31,10 @@ struct vec4 {
 
 	vec4 operator-() const {
 		return vec4(-x, -y, -z, -w);
+	}
+
+	std::string to_string() const {
+		return "(" + std::to_string(x) + ", " + std::to_string(y) + ", " + std::to_string(z) + ", " + std::to_string(w) + ")";
 	}
 };
 
