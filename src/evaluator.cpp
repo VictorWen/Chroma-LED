@@ -54,6 +54,7 @@ void Evaluator::visit(const SetVar &n) {
 }
 
 void Evaluator::visit(const InlineFuncCall& n) {
+    this->env.ret_val = ChromaData();
     if (this->env.functions.count(n.get_func_name()) == 0) {
         std::string error = "Function name " + n.get_func_name() + " is undefined";
         throw ChromaRuntimeException(error.c_str());
@@ -73,6 +74,7 @@ void Evaluator::visit(const InlineFuncCall& n) {
 }
 
 void Evaluator::visit(const FuncCall& n) {
+    this->env.ret_val = ChromaData();
     if (this->env.functions.count(n.get_func_name()) == 0) {
         std::string error = "Function name " + n.get_func_name() + " is undefined";
         throw ChromaRuntimeException(error.c_str());

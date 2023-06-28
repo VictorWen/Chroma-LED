@@ -22,7 +22,7 @@ vec4 RainbowEffect::draw(float index, const ChromaState& state) const {
 }
 
 SplitEffect::SplitEffect(const std::vector<ChromaData>& args) {
-    for (auto& data : args) {
+    for (auto& data : args[0].get_list()) {
         this->effects.push_back(data.get_effect());
     }
 }
@@ -34,7 +34,7 @@ vec4 SplitEffect::draw(float index, const ChromaState& state) const {
 }
 
 GradientEffect::GradientEffect(const std::vector<ChromaData>& args) {
-    for (auto& data : args) {
+    for (auto& data : args[0].get_list()) {
         this->effects.push_back(data.get_effect());
     }
 }

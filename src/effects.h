@@ -24,6 +24,7 @@ class SplitEffect : public ChromaEffect {
         std::vector<std::shared_ptr<ChromaEffect>> effects;
     public:
         SplitEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state) { for (auto& effect : this->effects) effect->tick(state); }
         vec4 draw(float index, const ChromaState& state) const;
 };
 
@@ -32,6 +33,7 @@ class GradientEffect : public ChromaEffect {
         std::vector<std::shared_ptr<ChromaEffect>> effects;
     public:
         GradientEffect(const std::vector<ChromaData>& args);
+        void tick(const ChromaState& state) { for (auto& effect : this->effects) effect->tick(state); }
         vec4 draw(float index, const ChromaState& state) const;
 };
 

@@ -5,6 +5,11 @@
 #include <memory>
 #include <math.h>
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #include "chroma.h"
 #include "chromatic.h"
 #include "chroma_script.h"
@@ -18,12 +23,10 @@ const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
     .add_argument("B", NUMBER_TYPE, "blue value 0-255")
     .set_description("Displays a color with the given RGB values");
 const auto SPLIT_CMD = CommandBuilder<SplitEffect>("split")
-    .add_argument("EFFECT1", OBJECT_TYPE, "effect to split first")
-    .add_argument("EFFECT2", OBJECT_TYPE, "effect to split second")
+    .add_expanding_argument("EFFECTS...", OBJECT_TYPE, "two or more effects to split between", 2)
     .set_description("Splits the strip in half with two effects on each");
 const auto GRADIENT_CMD = CommandBuilder<GradientEffect>("gradient")
-    .add_argument("EFFECT1", OBJECT_TYPE, "effect to start with")
-    .add_argument("EFFECT2", OBJECT_TYPE, "effect to gradually transition to")
+    .add_expanding_argument("EFFECTS...", OBJECT_TYPE, "two or more effects to gradually transition between", 2)
     .set_description("Gradually transition from one effect to the other across the strip");
 const auto RAINBOW_CMD = CommandBuilder<RainbowEffect>("rainbow")
     .set_description("Creates a rainbow along the entire strip");
@@ -89,6 +92,7 @@ void process_input(const std::string& input, ChromaEnvironment& cenv, const bool
                 std::cerr << ret_val.get_type() /*<< " " << ret_val.get_obj()->get_typename()*/ << std::endl;
         }
     } catch (ChromaRuntimeException& e) {
+        cenv.ret_val = ChromaData();
         fprintf(stderr, "Error: %s\n", e.what());
     }
 }
@@ -116,17 +120,26 @@ int main() {
     fprintf(stderr, "%s\n", SLIDE_CMD.get_help().c_str());
     cenv.functions["slide"] = std::make_unique<CommandBuilder<SlideEffect>>(SLIDE_CMD);
 
-    process_input("let r = rainbow", cenv, true);
-    process_input("let ten = 10", cenv, true);
-    process_input("func slide10 x = slide x ten", cenv, true);
+    // process_input("let r = rainbow", cenv, true);
+    // process_input("let ten = 10", cenv, true);
+    // process_input("func slide10 x = slide x ten", cenv, true);
     process_input("let RED = rgb 255 0 0", cenv, true);
+    process_input("let GREEN = rgb 0 255 0", cenv, true);
     process_input("let BLUE = rgb 0 0 255", cenv, true);
-    process_input("let p = split RED (gradient RED BLUE)", cenv, true);
-    process_input("gradient (slide10 p) (slide10 r)", cenv, true);
+    // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
+    // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
+    process_input("split RED BLUE GREEN", cenv, true);
+
+    fprintf(stderr, "Done processing input\n");
 
     try {
+        if (cenv.ret_val.get_type() != OBJECT_TYPE)
+            throw ChromaRuntimeException("Invalid effect type");
         ChromaController controller;
         controller.set_effect(cenv.ret_val.get_effect());
+#ifdef _WIN32
+        _setmode(_fileno(stdout), _O_BINARY );
+#endif
         controller.run(60, 150, callback);
     } catch (ChromaRuntimeException& e) {
         fprintf(stderr, "Error: %s\n", e.what());
