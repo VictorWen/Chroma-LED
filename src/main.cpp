@@ -187,9 +187,10 @@ int main() {
     process_input("let d = fadein r 10", cenv, true);
     process_input("let e = fadeout r 10", cenv, true);
     process_input("let f = wave r 10 10", cenv, true);
-    process_input("let g = wheel r 10 10", cenv, true);
+    process_input("let g = wheel r 10", cenv, true);
 
     process_input("split a b c d e f g", cenv, true);
+    // process_input("g", cenv, true);
 
     fprintf(stderr, "Done processing input\n");
 

@@ -215,7 +215,7 @@ void WaveEffect::tick(const ChromaState& state) {
 
 vec4 WaveEffect::draw(float index, const ChromaState& state) const {
     float t = state.get_time_diff(this->start);
-    float phase = (index / this->wavelength - t / this->period) * 2 * M_PI;
+    float phase = (index * state.pixel_length / this->wavelength - t / this->period) * 2 * M_PI;
     float val = (1 + sin(phase)) / 2;
     return this->effect->draw(val, state);
 }

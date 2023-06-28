@@ -1,6 +1,8 @@
 #ifndef CHROMATIC_H
 #define CHROMATIC_H
 
+#include <string>
+
 struct vec3 {
 	float x, y, z;
 };
