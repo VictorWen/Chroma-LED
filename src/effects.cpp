@@ -28,7 +28,10 @@ SplitEffect::SplitEffect(const std::vector<ChromaData>& args) {
 }
 
 vec4 SplitEffect::draw(float index, const ChromaState& state) const {
-    index = index * this->effects.size();
+    if (index != 1)
+        index = index * this->effects.size();
+    else
+        index = this->effects.size() - 1;
     int i = floor(index);
     return this->effects[i]->draw(fmod(index, 1), state);
 }
@@ -43,6 +46,9 @@ vec4 GradientEffect::draw(float index, const ChromaState& state) const {
     if (this->effects.size() == 1)
         return this->effects[0]->draw(index, state); // TODO: add verifier for at least two args?
     
+    if (index == 1)
+        return this->effects[this->effects.size() - 1]->draw(1, state);
+
     index = index * (this->effects.size() - 1);
     int i = floor(index);
     float lerp = index - i;
