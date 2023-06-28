@@ -38,6 +38,10 @@ const auto WIPE_CMD = CommandBuilder<WipeEffect>("wipe")
     .add_argument("EFFECT", OBJECT_TYPE, "effect to wipe around the strip")
     .add_argument("TIME", NUMBER_TYPE, "time to finish a wipe in seconds")
     .set_description("Wipes an effect with looping");
+const auto WORM_CMD = CommandBuilder<WormEffect>("worm")
+    .add_argument("EFFECT", OBJECT_TYPE, "effect to worm around the strip")
+    .add_argument("TIME", NUMBER_TYPE, "time to complete the worm")
+    .set_description("Grows a worm from one end of the strip to the other");
 const auto BLINK_CMD = CommandBuilder<BlinkEffect>("blink")
     .add_argument("EFFECT", OBJECT_TYPE, "effect to blink")
     .add_argument("TIME", NUMBER_TYPE, "time between blinking on and off")
@@ -151,6 +155,9 @@ int main() {
     fprintf(stderr, "%s\n", WIPE_CMD.get_help().c_str());
     cenv.functions["wipe"] = std::make_unique<CommandBuilder<WipeEffect>>(WIPE_CMD);
 
+    fprintf(stderr, "%s\n", WORM_CMD.get_help().c_str());
+    cenv.functions["worm"] = std::make_unique<CommandBuilder<WormEffect>>(WORM_CMD);
+
     fprintf(stderr, "%s\n", BLINK_CMD.get_help().c_str());
     cenv.functions["blink"] = std::make_unique<CommandBuilder<BlinkEffect>>(BLINK_CMD);
 
@@ -187,10 +194,11 @@ int main() {
     process_input("let d = fadein r 10", cenv, true);
     process_input("let e = fadeout r 10", cenv, true);
     process_input("let f = wave r 10 10", cenv, true);
-    process_input("let g = wheel r 10", cenv, true);
+    process_input("let g = wheel r 10 10", cenv, true);
+    process_input("let h = worm r 10", cenv, true);
 
-    process_input("split a b c d e f g", cenv, true);
-    // process_input("g", cenv, true);
+    // process_input("split a b c d e f g", cenv, true);
+    process_input("h", cenv, true);
 
     fprintf(stderr, "Done processing input\n");
 
