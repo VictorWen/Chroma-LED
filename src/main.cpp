@@ -4,6 +4,7 @@
 #include <deque>
 #include <memory>
 #include <math.h>
+#include <thread>
 
 #ifdef _WIN32
 #include <io.h>
@@ -75,7 +76,7 @@ void callback(const std::vector<vec4>& pixels) {
     fwrite(buffer, 16, n, stdout);
 }
 
-void process_input(const std::string& input, ChromaEnvironment& cenv, const bool verbose=false) {
+bool process_input(const std::string& input, ChromaEnvironment& cenv, const bool verbose=false) {
     std::deque<ParseToken> tokens;
     Tokenizer tokenizer;
 
@@ -102,7 +103,9 @@ void process_input(const std::string& input, ChromaEnvironment& cenv, const bool
             throw ParseException(error.c_str());
         }
     } catch (ParseException& e) {
+        cenv.ret_val = ChromaData();
         fprintf(stderr, "Error: %s\n", e.what());
+        return false;
     }
 
     if (verbose) {
@@ -123,10 +126,48 @@ void process_input(const std::string& input, ChromaEnvironment& cenv, const bool
             if (ret_val.get_type() != NULL_TYPE)
                 std::cerr << ret_val.get_type() /*<< " " << ret_val.get_obj()->get_typename()*/ << std::endl;
         }
+        return true;
     } catch (ChromaRuntimeException& e) {
         cenv.ret_val = ChromaData();
         fprintf(stderr, "Error: %s\n", e.what());
+        return false;
     }
+}
+
+
+void handle_stdin_input(ChromaEnvironment& cenv, ChromaController& controller) {
+    fprintf(stderr, "Input Command: ");
+    for (std::string line; std::getline(std::cin, line);) {
+        std::cerr << line << std::endl;
+        if (process_input(line, cenv, false)) {
+            // fprintf(stderr, "Successful command");
+            try {
+                if (cenv.ret_val.get_type() != OBJECT_TYPE)
+                    throw ChromaRuntimeException("Invalid effect type");
+                
+                controller.set_effect(cenv.ret_val.get_effect());
+            } catch (ChromaRuntimeException& e) {
+                fprintf(stderr, "Error: %s\n", e.what());
+            }
+        }
+        fprintf(stderr, "Input Command: ");
+    }
+}
+
+void run_stdin(ChromaEnvironment& cenv) {
+    #ifdef _WIN32
+        _setmode(_fileno(stdout), _O_BINARY);
+    #endif
+    ChromaController controller;
+
+    std::vector<ChromaData> data;
+    controller.set_effect(std::make_shared<RainbowEffect>(data));
+
+    fprintf(stderr, "Starting input thread\n");
+    std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(controller));
+    fprintf(stderr, "Starting controller\n");
+    controller.run(60, 150, callback);
+    thread.join();
 }
 
 
@@ -180,40 +221,29 @@ int main() {
     // process_input("let r = rainbow", cenv, true);
     // process_input("let ten = 10", cenv, true);
     // process_input("func slide10 x = slide x ten", cenv, true);
-    process_input("let RED = rgb 255 0 0", cenv, true);
-    process_input("let GREEN = rgb 0 255 0", cenv, true);
-    process_input("let BLUE = rgb 0 0 255", cenv, true);
+    // process_input("let RED = rgb 255 0 0", cenv, true);
+    // process_input("let GREEN = rgb 0 255 0", cenv, true);
+    // process_input("let BLUE = rgb 0 0 255", cenv, true);
     // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
     // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
 
 
-    process_input("let r = gradient RED GREEN BLUE", cenv, true);
-    process_input("let a = wipe r 10", cenv, true);
-    process_input("let b = blink r 10", cenv, true);
-    process_input("let c = blinkfade r 10", cenv, true);
-    process_input("let d = fadein r 10", cenv, true);
-    process_input("let e = fadeout r 10", cenv, true);
-    process_input("let f = wave r 10 10", cenv, true);
-    process_input("let g = wheel r 10 10", cenv, true);
-    process_input("let h = worm r 10", cenv, true);
+    // process_input("let r = gradient RED GREEN BLUE", cenv, true);
+    // process_input("let a = wipe r 10", cenv, true);
+    // process_input("let b = blink r 10", cenv, true);
+    // process_input("let c = blinkfade r 10", cenv, true);
+    // process_input("let d = fadein r 10", cenv, true);
+    // process_input("let e = fadeout r 10", cenv, true);
+    // process_input("let f = wave r 10 10", cenv, true);
+    // process_input("let g = wheel r 10 10", cenv, true);
+    // process_input("let h = worm r 10", cenv, true);
 
     // process_input("split a b c d e f g", cenv, true);
-    process_input("h", cenv, true);
+    // process_input("h", cenv, true);
 
-    fprintf(stderr, "Done processing input\n");
+    // fprintf(stderr, "Done processing input\n");
 
-    try {
-        if (cenv.ret_val.get_type() != OBJECT_TYPE)
-            throw ChromaRuntimeException("Invalid effect type");
-        ChromaController controller;
-        controller.set_effect(cenv.ret_val.get_effect());
-#ifdef _WIN32
-        _setmode(_fileno(stdout), _O_BINARY );
-#endif
-        controller.run(60, 150, callback);
-    } catch (ChromaRuntimeException& e) {
-        fprintf(stderr, "Error: %s\n", e.what());
-    }
+    run_stdin(cenv);
 
     return 0;
 }
