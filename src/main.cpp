@@ -17,6 +17,7 @@
 #include "commands.h"
 #include "evaluator.h"
 #include "effects.h"
+#include "particles.h"
 
 const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
     .add_argument("R", NUMBER_TYPE, "red value 0-255")
@@ -68,6 +69,16 @@ const auto WHEEL_CMD = CommandBuilder<WheelEffect>("wheel")
     .add_argument("EFFECT", OBJECT_TYPE, "effect to spin")
     .add_argument("PERIOD", NUMBER_TYPE, "period of the spin")
     .set_description("Spins the effect across the strip like a wheel (wave-like version of wipe)");
+
+
+const auto PARTICLE_CMD = CommandBuilder<ParticleEffect>("particle")
+    .add_argument("EFFECT", OBJECT_TYPE, "colors the particle will display")
+    .add_argument("RADIUS", NUMBER_TYPE, "radius of the particle body")
+    .set_description("Creates a particle object for a physics system");
+const auto PSYSTEM_CMD = CommandBuilder<ParticleSystem>("psystem")
+    .add_argument("PARTICLE_LIST", LIST_TYPE, "list of particle objects to display")
+    .set_description("Displays a set of particles with physics simulation");
+
 
 void callback(const std::vector<vec4>& pixels) {
     const int n = 150;
@@ -139,12 +150,8 @@ void handle_stdin_input(ChromaEnvironment& cenv, ChromaController& controller) {
     fprintf(stderr, "Input Command: ");
     for (std::string line; std::getline(std::cin, line);) {
         std::cerr << line << std::endl;
-        if (process_input(line, cenv, false)) {
-            // fprintf(stderr, "Successful command");
-            try {
-                if (cenv.ret_val.get_type() != OBJECT_TYPE)
-                    throw ChromaRuntimeException("Invalid effect type");
-                
+        if (process_input(line, cenv, false) && cenv.ret_val.get_type() == OBJECT_TYPE) {
+            try { // TODO: need a better way to check effect type       
                 controller.set_effect(cenv.ret_val.get_effect());
             } catch (ChromaRuntimeException& e) {
                 fprintf(stderr, "Error: %s\n", e.what());
@@ -172,10 +179,6 @@ void run_stdin(ChromaEnvironment& cenv) {
 
 
 int main() {
-    // for (std::string line; std::getline(std::cin, line);) {
-    //     std::cout << line << std::endl;
-    // }
-
     ChromaEnvironment cenv;
 
     fprintf(stderr, "%s\n", RGB_CMD.get_help().c_str());
@@ -216,6 +219,12 @@ int main() {
 
     fprintf(stderr, "%s\n", WHEEL_CMD.get_help().c_str());
     cenv.functions["wheel"] = std::make_unique<CommandBuilder<WheelEffect>>(WHEEL_CMD);
+
+    fprintf(stderr, "%s\n", PARTICLE_CMD.get_help().c_str());
+    cenv.functions["particle"] = std::make_unique<CommandBuilder<ParticleEffect>>(PARTICLE_CMD);
+
+    fprintf(stderr, "%s\n", PSYSTEM_CMD.get_help().c_str());
+    cenv.functions["psystem"] = std::make_unique<CommandBuilder<ParticleSystem>>(PSYSTEM_CMD);
     
 
     // process_input("let r = rainbow", cenv, true);

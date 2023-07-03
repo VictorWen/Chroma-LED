@@ -29,6 +29,13 @@ struct vec4 {
 		return vec4(x + other.x, y + other.y, z + other.z, w + other.w);
 	}
 
+	void operator+=(const vec4& other) {
+		this->x += other.x;
+		this->y += other.y;
+		this->z += other.z;
+		this->w += other.w;
+	}
+
 	vec4 operator-() const {
 		return vec4(-x, -y, -z, -w);
 	}
