@@ -18,6 +18,7 @@ class PhysicsBody : public ChromaObject {
         float _prev_position;
         float _prev_velocity;
     public:
+        PhysicsBody(const std::vector<ChromaData>& args);
         PhysicsBody(float pos, float vel, float acc, float mass) :
             ChromaObject("PhysicsBody"), _position(pos), _velocity(vel), _acceleration(acc), _mass(mass) { }
         float pos() const { return this->_position; }

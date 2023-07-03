@@ -3,10 +3,22 @@
 #include "particles.h"
 
 
+PhysicsBody::PhysicsBody(const std::vector<ChromaData> &args) : ChromaObject("PhysicsBody")
+{
+    this->_position = args[0].get_float();
+    if (args.size() >= 2)
+        this->_velocity = args[1].get_float();
+    if (args.size() >= 3)
+        this->_acceleration = args[2].get_float();
+    if (args.size() >= 4)
+        this->_mass = args[3].get_float();
+}
+
 ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle"), body(10., 0., 0., 1.)
 {
     this->effect = args[0].get_effect();
-    this->radius = args[1].get_float();
+    this->body = *(args[1].get_obj<PhysicsBody>());
+    this->radius = args[2].get_float();
 }
 
 void ParticleEffect::tick(ParticleSystem &system, const ChromaState &state)

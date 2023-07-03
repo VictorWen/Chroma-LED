@@ -79,6 +79,7 @@ const auto PBODY_CMD = CommandBuilder<PhysicsBody>("pbody")
     .set_description("Creates a physics body object to be used with a particle");
 const auto PARTICLE_CMD = CommandBuilder<ParticleEffect>("particle")
     .add_argument("EFFECT", OBJECT_TYPE, "colors the particle will display")
+    .add_argument("BODY", OBJECT_TYPE, "physics body of the particle")
     .add_argument("RADIUS", NUMBER_TYPE, "radius of the particle body")
     .set_description("Creates a particle object for a physics system");
 const auto PSYSTEM_CMD = CommandBuilder<ParticleSystem>("psystem")
