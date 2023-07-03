@@ -2,7 +2,8 @@
 
 #include "particles.h"
 
-ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle")
+
+ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle"), body(10., 0., 0., 1.)
 {
     this->effect = args[0].get_effect();
     this->radius = args[1].get_float();
@@ -45,7 +46,7 @@ void ParticleSystem::tick(const ChromaState &state)
 
 vec4 ParticleSystem::draw(float index, const ChromaState &state) const
 {
-    const size_t gaussian_radius = 4;
+    const int gaussian_radius = 4;
     float kernel[] = {0.0002, 0.0060, 0.0606, 0.2417, 0.3829, 0.2417, 0.0606, 0.0060, 0.0002};
     
     size_t position = floor(state.pixel_length * index);

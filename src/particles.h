@@ -18,6 +18,8 @@ class PhysicsBody {
         float _prev_position;
         float _prev_velocity;
     public:
+        PhysicsBody(float pos, float vel, float acc, float mass) :
+            _position(pos), _velocity(vel), _acceleration(acc), _mass(mass) { }
         float pos() const { return this->_position; }
         float vel() const { return this->_velocity; }
         float acc() const { return this->_acceleration; }
@@ -39,7 +41,9 @@ class CollisionEvent {
 
 };
 
-class ParticleEffect : ChromaObject {
+class ParticleSystem;
+
+class ParticleEffect : public ChromaObject {
     private:
         float radius;
         float intensity;
@@ -51,7 +55,7 @@ class ParticleEffect : ChromaObject {
         float get_lower_bound() const { return this->body.pos() - this->radius; }
         float get_upper_bound() const { return this->body.pos() + this->radius; }
         const PhysicsBody& get_body() const { return this->body; }
-        bool is_in_bounds(float pos) const { return (this->body.pos() - this->radius) <= pos <= (this->body.pos() + this->radius); }
+        bool is_in_bounds(float pos) const { return (this->body.pos() - this->radius) <= pos && pos <= (this->body.pos() + this->radius); }
         void tick(ParticleSystem& system, const ChromaState& state);
         vec4 draw(float index, const ChromaState& state) const;
 };
