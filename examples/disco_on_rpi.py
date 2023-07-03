@@ -32,7 +32,8 @@ def main():
             frame = np.frombuffer(frame, dtype=dtype).reshape(n, n_channels)
             # print(frame)
             write_to_pixels(pixels, frame)
-    except:
+    except Exception as e:
+        print(e)
         print(frame, len(frame))
     
 if __name__ == "__main__":

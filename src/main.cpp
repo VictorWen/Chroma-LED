@@ -71,6 +71,12 @@ const auto WHEEL_CMD = CommandBuilder<WheelEffect>("wheel")
     .set_description("Spins the effect across the strip like a wheel (wave-like version of wipe)");
 
 
+const auto PBODY_CMD = CommandBuilder<PhysicsBody>("pbody")
+    .add_argument("POSITION", NUMBER_TYPE, "position of the body (in pixels)")
+    .add_optional_argument("VELOCITY", NUMBER_TYPE, "velocity of the body (in pixels per second)")
+    .add_optional_argument("ACCELERATION", NUMBER_TYPE, "acceleration of the body (in pixels per second squared)")
+    .add_optional_argument("MASS", NUMBER_TYPE, "mass of the body")
+    .set_description("Creates a physics body object to be used with a particle");
 const auto PARTICLE_CMD = CommandBuilder<ParticleEffect>("particle")
     .add_argument("EFFECT", OBJECT_TYPE, "colors the particle will display")
     .add_argument("RADIUS", NUMBER_TYPE, "radius of the particle body")
@@ -219,6 +225,9 @@ int main() {
 
     fprintf(stderr, "%s\n", WHEEL_CMD.get_help().c_str());
     cenv.functions["wheel"] = std::make_unique<CommandBuilder<WheelEffect>>(WHEEL_CMD);
+
+    fprintf(stderr, "%s\n", PBODY_CMD.get_help().c_str());
+    cenv.functions["pbody"] = std::make_unique<CommandBuilder<PhysicsBody>>(PBODY_CMD);
 
     fprintf(stderr, "%s\n", PARTICLE_CMD.get_help().c_str());
     cenv.functions["particle"] = std::make_unique<CommandBuilder<ParticleEffect>>(PARTICLE_CMD);

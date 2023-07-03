@@ -9,7 +9,7 @@
 #include "chromatic.h"
 
 
-class PhysicsBody {
+class PhysicsBody : public ChromaObject {
     private:
         float _position;
         float _velocity;
@@ -19,7 +19,7 @@ class PhysicsBody {
         float _prev_velocity;
     public:
         PhysicsBody(float pos, float vel, float acc, float mass) :
-            _position(pos), _velocity(vel), _acceleration(acc), _mass(mass) { }
+            ChromaObject("PhysicsBody"), _position(pos), _velocity(vel), _acceleration(acc), _mass(mass) { }
         float pos() const { return this->_position; }
         float vel() const { return this->_velocity; }
         float acc() const { return this->_acceleration; }
