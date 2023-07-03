@@ -3,7 +3,8 @@
 #include "particles.h"
 
 
-PhysicsBody::PhysicsBody(const std::vector<ChromaData> &args) : ChromaObject("PhysicsBody")
+PhysicsBody::PhysicsBody(const std::vector<ChromaData> &args) : ChromaObject("PhysicsBody"), 
+    _position(0), _velocity(0), _acceleration(0), _mass(1)
 {
     this->_position = args[0].get_float();
     if (args.size() >= 2)
