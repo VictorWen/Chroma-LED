@@ -43,12 +43,14 @@ class CollisionEvent {
 };
 
 class ParticleSystem;
+class ParticleBehavior;
 
 class ParticleEffect : public ChromaObject {
     private:
         float radius;
         float intensity;
         std::shared_ptr<ChromaEffect> effect;
+        std::vector<std::shared_ptr<ParticleBehavior>> behaviors;
         PhysicsBody body;
     public:
         ParticleEffect(const std::vector<ChromaData>& args);
@@ -59,17 +61,40 @@ class ParticleEffect : public ChromaObject {
         bool is_in_bounds(float pos) const { return (this->body.pos() - this->radius) <= pos && pos <= (this->body.pos() + this->radius); }
         void tick(ParticleSystem& system, const ChromaState& state);
         vec4 draw(float index, const ChromaState& state) const;
+        std::shared_ptr<ParticleEffect> clone(const PhysicsBody& body);
 };
 
 class ParticleSystem : public ChromaEffect {
     private:
         std::vector<vec4> screen;
         std::unordered_set<std::shared_ptr<ParticleEffect>> particles;
+        std::unordered_set<std::shared_ptr<ParticleEffect>> pending_particles;
     public:
         ParticleSystem(const std::vector<ChromaData>& args);
         void tick(const ChromaState& state);
         vec4 draw(float index, const ChromaState& state) const;
+        void add_particle(std::shared_ptr<ParticleEffect>& particle) { this->pending_particles.insert(particle); }
         std::shared_ptr<ChromaObject> clone() const;
+};
+
+class ParticleBehavior : public ChromaObject {
+    protected:
+        bool is_alive;
+    public:
+        ParticleBehavior() : ChromaObject("ParticleBehavior"), is_alive(true) { }
+        virtual void tick(ParticleSystem& system, ParticleEffect& particle, const ChromaState& state) = 0;
+};
+
+class EmitterBehavior : public ParticleBehavior {
+    private:
+        std::shared_ptr<ParticleEffect> particle;
+        float density;
+        float time_start;
+        int particles_emitted;
+        void emit(ParticleSystem& system, ParticleEffect& effect);
+    public:
+        EmitterBehavior(const std::vector<ChromaData>& args); 
+        void tick(ParticleSystem& system, ParticleEffect& particle, const ChromaState& state);
 };
 
 #endif

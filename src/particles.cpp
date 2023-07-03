@@ -20,16 +20,31 @@ ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObje
     this->effect = args[0].get_effect();
     this->body = *(args[1].get_obj<PhysicsBody>());
     this->radius = args[2].get_float();
+    if (args.size() > 3) {
+        for (auto& behavior : args[3].get_list()) {
+            this->behaviors.push_back(behavior.get_obj<ParticleBehavior>());
+        }
+    }
 }
 
 void ParticleEffect::tick(ParticleSystem &system, const ChromaState &state)
 {
     this->body.tick(state.delta_time);
+    for (auto& behavior : this->behaviors) {
+        behavior->tick(system, *this, state);
+    }
 }
 
 vec4 ParticleEffect::draw(float index, const ChromaState &state) const
 {
     return this->effect->draw(index, state);
+}
+
+std::shared_ptr<ParticleEffect> ParticleEffect::clone(const PhysicsBody &body)
+{
+    auto output = std::make_shared<ParticleEffect>(*this); // TODO: clone color effect properly
+    output->body = body;
+    return output;
 }
 
 ParticleSystem::ParticleSystem(const std::vector<ChromaData> &args)
@@ -43,7 +58,7 @@ ParticleSystem::ParticleSystem(const std::vector<ChromaData> &args)
 void ParticleSystem::tick(const ChromaState &state)
 {
     this->screen = std::vector<vec4>(state.pixel_length);
-
+    // fprintf(stderr, "SYSTEM TICK START\n");
     for (auto& particle : this->particles) {
         particle->tick(*this, state);
     }
@@ -57,6 +72,12 @@ void ParticleSystem::tick(const ChromaState &state)
             }
         }
     }
+
+    for (auto& new_particle : this->pending_particles) {
+        this->particles.insert(new_particle);
+    }
+    this->pending_particles.clear();
+    // fprintf(stderr, "SYSTEM TICK END\n");
 }
 
 vec4 ParticleSystem::draw(float index, const ChromaState &state) const
@@ -75,4 +96,34 @@ vec4 ParticleSystem::draw(float index, const ChromaState &state) const
     }
 
     return color;
+}
+
+EmitterBehavior::EmitterBehavior(const std::vector<ChromaData> &args) :
+    time_start(-1), particles_emitted(0) 
+{
+    this->particle = args[0].get_obj<ParticleEffect>();
+    this->density = args[1].get_float();
+}
+
+void EmitterBehavior::tick(ParticleSystem &system, ParticleEffect &particle, const ChromaState &state)
+{
+    if (this->time_start < 0)
+        this->time_start = state.time;
+    if (state.get_time_diff(this->time_start) * this->density > this->particles_emitted) {
+        fprintf(stderr, "EMISSION\n");
+        this->emit(system, particle);
+        this->particles_emitted++;
+    }
+}
+
+void EmitterBehavior::emit(ParticleSystem &system, ParticleEffect &particle)
+{
+    PhysicsBody body(
+        particle.get_body().pos() + this->particle->get_body().pos(), 
+        particle.get_body().vel() + this->particle->get_body().vel(), 
+        particle.get_body().acc(), 
+        particle.get_body().mass()
+    );
+    auto emission = this->particle->clone(body);
+    system.add_particle(emission);
 }

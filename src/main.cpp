@@ -81,10 +81,15 @@ const auto PARTICLE_CMD = CommandBuilder<ParticleEffect>("particle")
     .add_argument("EFFECT", OBJECT_TYPE, "colors the particle will display")
     .add_argument("BODY", OBJECT_TYPE, "physics body of the particle")
     .add_argument("RADIUS", NUMBER_TYPE, "radius of the particle body")
+    .add_optional_argument("BEHAVIORS", LIST_TYPE, "list of behaviors the particle will have")
     .set_description("Creates a particle object for a physics system");
 const auto PSYSTEM_CMD = CommandBuilder<ParticleSystem>("psystem")
     .add_argument("PARTICLE_LIST", LIST_TYPE, "list of particle objects to display")
     .set_description("Displays a set of particles with physics simulation");
+const auto EMITTER_CMD = CommandBuilder<EmitterBehavior>("emitter")
+    .add_argument("PARTICLE", OBJECT_TYPE, "particle emission")
+    .add_argument("DENSITY", NUMBER_TYPE, "number of particles per second")
+    .set_description("Emits copies of the given particle at a consistent rate");
 
 
 void callback(const std::vector<vec4>& pixels) {
@@ -235,14 +240,17 @@ int main() {
 
     fprintf(stderr, "%s\n", PSYSTEM_CMD.get_help().c_str());
     cenv.functions["psystem"] = std::make_unique<CommandBuilder<ParticleSystem>>(PSYSTEM_CMD);
+
+    fprintf(stderr, "%s\n", EMITTER_CMD.get_help().c_str());
+    cenv.functions["emitter"] = std::make_unique<CommandBuilder<EmitterBehavior>>(EMITTER_CMD);
     
 
     // process_input("let r = rainbow", cenv, true);
     // process_input("let ten = 10", cenv, true);
     // process_input("func slide10 x = slide x ten", cenv, true);
-    // process_input("let RED = rgb 255 0 0", cenv, true);
-    // process_input("let GREEN = rgb 0 255 0", cenv, true);
-    // process_input("let BLUE = rgb 0 0 255", cenv, true);
+    process_input("let RED = rgb 255 0 0", cenv, false);
+    process_input("let GREEN = rgb 0 255 0", cenv, false);
+    process_input("let BLUE = rgb 0 0 255", cenv, false);
     // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
     // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
 
@@ -259,6 +267,9 @@ int main() {
 
     // process_input("split a b c d e f g", cenv, true);
     // process_input("h", cenv, true);
+
+    process_input("let testParticle = particle RED (pbody 10 5) 2", cenv, false);
+    process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
 
     // fprintf(stderr, "Done processing input\n");
 

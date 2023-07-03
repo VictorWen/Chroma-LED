@@ -9,6 +9,7 @@ ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, const Chrom
             std::to_string(args.size()) + 
             ") do not match number (" + std::to_string(this->var_names.size()) + 
             ") of parameters for function call " + this->get_name();
+        throw ChromaRuntimeException(error.c_str());
     }
     
     for (size_t i = 0; i < args.size(); i++) {

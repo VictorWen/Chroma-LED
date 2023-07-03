@@ -52,6 +52,7 @@ class ChromaObject {
         virtual ~ChromaObject() {}
         ChromaObject(const std::string& obj_typename) : obj_typename(obj_typename) { }
         const std::string& get_typename() const { return this->obj_typename; }
+        virtual std::shared_ptr<ChromaObject> clone() { return std::make_shared<ChromaObject>(*this); }
 };
 
 class ChromaEffect : public ChromaObject {
