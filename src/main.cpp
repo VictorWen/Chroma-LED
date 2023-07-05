@@ -90,6 +90,9 @@ const auto EMITTER_CMD = CommandBuilder<EmitterBehavior>("emitter")
     .add_argument("PARTICLE", OBJECT_TYPE, "particle emission")
     .add_argument("DENSITY", NUMBER_TYPE, "number of particles per second")
     .set_description("Emits copies of the given particle at a consistent rate");
+const auto LIFE_CMD = CommandBuilder<LifetimeBehavior>("life")
+    .add_argument("LIFETIME", NUMBER_TYPE, "time in seconds for the particle to live")
+    .set_description("Destroys the particle after a certain amount of time");
 
 
 void callback(const std::vector<vec4>& pixels) {
@@ -243,6 +246,9 @@ int main() {
 
     fprintf(stderr, "%s\n", EMITTER_CMD.get_help().c_str());
     cenv.functions["emitter"] = std::make_unique<CommandBuilder<EmitterBehavior>>(EMITTER_CMD);
+
+    fprintf(stderr, "%s\n", LIFE_CMD.get_help().c_str());
+    cenv.functions["life"] = std::make_unique<CommandBuilder<LifetimeBehavior>>(LIFE_CMD);
     
 
     // process_input("let r = rainbow", cenv, true);
@@ -268,7 +274,7 @@ int main() {
     // process_input("split a b c d e f g", cenv, true);
     // process_input("h", cenv, true);
 
-    process_input("let testParticle = particle RED (pbody 10 5) 2", cenv, false);
+    process_input("let testParticle = particle RED (pbody 10 5) 2 [(life 10)]", cenv, false);
     process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
 
     // fprintf(stderr, "Done processing input\n");

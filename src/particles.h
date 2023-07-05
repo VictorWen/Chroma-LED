@@ -18,6 +18,7 @@ class PhysicsBody : public ChromaObject {
         float _prev_position;
         float _prev_velocity;
     public:
+        PhysicsBody() : PhysicsBody(0, 0, 0, 1) { };
         PhysicsBody(const std::vector<ChromaData>& args);
         PhysicsBody(float pos, float vel, float acc, float mass) :
             ChromaObject("PhysicsBody"), _position(pos), _velocity(vel), _acceleration(acc), _mass(mass) { }
@@ -52,8 +53,10 @@ class ParticleEffect : public ChromaObject {
         std::shared_ptr<ChromaEffect> effect;
         std::vector<std::shared_ptr<ParticleBehavior>> behaviors;
         PhysicsBody body;
+        bool alive;
     public:
         ParticleEffect(const std::vector<ChromaData>& args);
+        ParticleEffect(const ParticleEffect& other);
         float get_radius() const { return this->radius; }
         float get_lower_bound() const { return this->body.pos() - this->radius; }
         float get_upper_bound() const { return this->body.pos() + this->radius; }
@@ -62,6 +65,8 @@ class ParticleEffect : public ChromaObject {
         void tick(ParticleSystem& system, const ChromaState& state);
         vec4 draw(float index, const ChromaState& state) const;
         std::shared_ptr<ParticleEffect> clone(const PhysicsBody& body);
+        bool is_alive() { return this->alive; }
+        void kill() { this->alive = false; }
 };
 
 class ParticleSystem : public ChromaEffect {
@@ -74,7 +79,7 @@ class ParticleSystem : public ChromaEffect {
         void tick(const ChromaState& state);
         vec4 draw(float index, const ChromaState& state) const;
         void add_particle(std::shared_ptr<ParticleEffect>& particle) { this->pending_particles.insert(particle); }
-        std::shared_ptr<ChromaObject> clone() const;
+        //std::shared_ptr<ChromaObject> clone() const;
 };
 
 class ParticleBehavior : public ChromaObject {
@@ -83,6 +88,7 @@ class ParticleBehavior : public ChromaObject {
     public:
         ParticleBehavior() : ChromaObject("ParticleBehavior"), is_alive(true) { }
         virtual void tick(ParticleSystem& system, ParticleEffect& particle, const ChromaState& state) = 0;
+        virtual std::shared_ptr<ParticleBehavior> clone() const = 0;
 };
 
 class EmitterBehavior : public ParticleBehavior {
@@ -95,6 +101,17 @@ class EmitterBehavior : public ParticleBehavior {
     public:
         EmitterBehavior(const std::vector<ChromaData>& args); 
         void tick(ParticleSystem& system, ParticleEffect& particle, const ChromaState& state);
+        std::shared_ptr<ParticleBehavior> clone() const;
+};
+
+class LifetimeBehavior : public ParticleBehavior { 
+    private:
+        float lifetime;
+        float time_start;
+    public:
+        LifetimeBehavior(const std::vector<ChromaData>& args);
+        void tick(ParticleSystem& system, ParticleEffect& particle, const ChromaState& state);
+        std::shared_ptr<ParticleBehavior> clone() const;
 };
 
 #endif

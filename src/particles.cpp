@@ -15,7 +15,7 @@ PhysicsBody::PhysicsBody(const std::vector<ChromaData> &args) : ChromaObject("Ph
         this->_mass = args[3].get_float();
 }
 
-ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle"), body(10., 0., 0., 1.)
+ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle"), body(0, 0, 0, 1)
 {
     this->effect = args[0].get_effect();
     this->body = *(args[1].get_obj<PhysicsBody>());
@@ -24,6 +24,15 @@ ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObje
         for (auto& behavior : args[3].get_list()) {
             this->behaviors.push_back(behavior.get_obj<ParticleBehavior>());
         }
+    }
+}
+
+ParticleEffect::ParticleEffect(const ParticleEffect &other) : 
+    ChromaObject("Particle"), radius(other.radius), intensity(other.intensity), body(other.body), alive(true)
+{
+    this->effect = other.effect; // TODO: implement effect.clone() instead
+    for (auto& behavior : other.behaviors) {
+        this->behaviors.push_back(behavior->clone());
     }
 }
 
@@ -42,7 +51,7 @@ vec4 ParticleEffect::draw(float index, const ChromaState &state) const
 
 std::shared_ptr<ParticleEffect> ParticleEffect::clone(const PhysicsBody &body)
 {
-    auto output = std::make_shared<ParticleEffect>(*this); // TODO: clone color effect properly
+    auto output = std::make_shared<ParticleEffect>(*this);
     output->body = body;
     return output;
 }
@@ -58,9 +67,15 @@ ParticleSystem::ParticleSystem(const std::vector<ChromaData> &args)
 void ParticleSystem::tick(const ChromaState &state)
 {
     this->screen = std::vector<vec4>(state.pixel_length);
-    // fprintf(stderr, "SYSTEM TICK START\n");
+
+    std::vector<std::shared_ptr<ParticleEffect>> dead_particles;
     for (auto& particle : this->particles) {
         particle->tick(*this, state);
+        if (!particle->is_alive())
+            dead_particles.push_back(particle);
+    }
+    for (auto& particle : dead_particles) {
+        this->particles.erase(particle);
     }
 
     for (auto& particle : this->particles) {
@@ -110,7 +125,6 @@ void EmitterBehavior::tick(ParticleSystem &system, ParticleEffect &particle, con
     if (this->time_start < 0)
         this->time_start = state.time;
     if (state.get_time_diff(this->time_start) * this->density > this->particles_emitted) {
-        fprintf(stderr, "EMISSION\n");
         this->emit(system, particle);
         this->particles_emitted++;
     }
@@ -125,5 +139,31 @@ void EmitterBehavior::emit(ParticleSystem &system, ParticleEffect &particle)
         particle.get_body().mass()
     );
     auto emission = this->particle->clone(body);
+    fprintf(stderr, "EMISSION %d\n", emission->is_alive());
     system.add_particle(emission);
+}
+
+std::shared_ptr<ParticleBehavior> EmitterBehavior::clone() const {
+    auto clone = std::make_shared<EmitterBehavior>(*this);
+    clone->time_start = -1;
+    return clone;
+}
+
+LifetimeBehavior::LifetimeBehavior(const std::vector<ChromaData>& args) : time_start(-1)
+{
+    this->lifetime = args[0].get_float();
+}
+
+void LifetimeBehavior::tick(ParticleSystem &system, ParticleEffect &particle, const ChromaState &state)
+{
+    if (this->time_start < 0)
+        this->time_start = state.time;
+    if (state.get_time_diff(this->time_start) >= this->lifetime)
+        particle.kill();
+}
+
+std::shared_ptr<ParticleBehavior> LifetimeBehavior::clone() const {
+    auto clone = std::make_shared<LifetimeBehavior>(*this);
+    clone->time_start = -1;
+    return clone;
 }
