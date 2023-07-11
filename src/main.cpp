@@ -277,6 +277,9 @@ int main() {
     process_input("let testParticle = particle RED (pbody 10 5) 2 [(life 10)]", cenv, false);
     process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
 
+    process_input("let particleA = particle RED (pbody 0 10) 2", cenv, false);
+    process_input("let particleB = particle BLUE (pbody 150 -10) 2", cenv, false);
+
     // fprintf(stderr, "Done processing input\n");
 
     run_stdin(cenv);

@@ -25,7 +25,7 @@ struct PhysicsBody : public ChromaObject {
         ChromaObject("PhysicsBody"), position(pos), velocity(vel), acceleration(acc), mass(mass) { }
     void tick(float time_delta) {
         this->prev_position = this->position;
-        this->prev_velocity = this->prev_velocity;
+        this->prev_velocity = this->velocity;
         this->position += (this->velocity + this->acceleration * time_delta / 2.0) * time_delta;
         this->velocity += this->acceleration * time_delta;
     }

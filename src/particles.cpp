@@ -40,7 +40,7 @@ ParticleEffect::ParticleEffect(const ParticleEffect &other) :
 
 void ParticleEffect::tick(ParticleSystem &system, const ChromaState &state)
 {
-    this->body.tick(state.delta_time);
+    // this->body.tick(state.delta_time);
     for (auto& behavior : this->behaviors) {
         behavior->tick(system, *this, state);
     }
@@ -72,7 +72,7 @@ float calculate_collision_time(const PhysicsBody& body1, const PhysicsBody& body
     float delta_acc = body2.acceleration - body1.acceleration;
     float delta_t = -1;
 
-    if (delta_acc != 0) { // Solve a quadratic equation
+    if (delta_acc != 0.0) { // Solve a quadratic equation
         // solving for t in 0.5 * at^2 + vt + p
         float discrim = delta_vel * delta_vel - 4 * 0.5 * delta_acc * delta_pos;
         if (discrim < 0)
@@ -82,14 +82,15 @@ float calculate_collision_time(const PhysicsBody& body1, const PhysicsBody& body
         if (delta_t < 0)
             delta_t = (-delta_vel + sqrt_discrim) / delta_acc;
     }
-    else if (delta_vel != 0) // Solve a linear equation
+    else if (delta_vel != 0.0) { // Solve a linear equation
         delta_t = -delta_pos / delta_vel;
+    }
     else  // No relative movement -> No collision
         return -1;
 
-    if (delta_vel < 0)
+    if (delta_t < 0)
         return -1;
-    return delta_vel;
+    return delta_t;
 }
 
 void calculate_collision(float time_delta, PhysicsBody& body1, PhysicsBody& body2) {
@@ -120,12 +121,18 @@ void ParticleSystem::tick(const ChromaState &state)
             left = body.prev_position;
             right = body.position;
         }
+        // fprintf(stderr, "LEFT: %f, RIGHT: %f\n", left, right);
         interval_points.push_back({left, false, &body});
         interval_points.push_back({right, true, &body});
     }
+
+    // fprintf(stderr, "Intervals: %d\n", interval_points.size());
     
     // 2. Sort intervals by start time
     std::sort(interval_points.begin(), interval_points.end());
+    // for (auto i : interval_points) {
+        // fprintf(stderr, "point (%f, %d, %x)", std::get<0>(i), std::get<1>(i), std::get<2>(i));
+    // }
 
     // 3. Find overlaps
     std::unordered_set<PhysicsBody*> active_intervals;
@@ -138,6 +145,7 @@ void ParticleSystem::tick(const ChromaState &state)
             for (PhysicsBody* body: active_intervals) {
                 calculate_collision(state.delta_time, *body, *std::get<2>(point));
             }
+            active_intervals.insert(std::get<2>(point));
         }
     }
 
