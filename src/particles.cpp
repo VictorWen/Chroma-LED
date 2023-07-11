@@ -1,18 +1,20 @@
 #include <math.h>
+#include <algorithm>
 
 #include "particles.h"
 
 
+
 PhysicsBody::PhysicsBody(const std::vector<ChromaData> &args) : ChromaObject("PhysicsBody"), 
-    _position(0), _velocity(0), _acceleration(0), _mass(1)
+    position(0), velocity(0), acceleration(0), mass(1)
 {
-    this->_position = args[0].get_float();
+    this->position = args[0].get_float();
     if (args.size() >= 2)
-        this->_velocity = args[1].get_float();
+        this->velocity = args[1].get_float();
     if (args.size() >= 3)
-        this->_acceleration = args[2].get_float();
+        this->acceleration = args[2].get_float();
     if (args.size() >= 4)
-        this->_mass = args[3].get_float();
+        this->mass = args[3].get_float();
 }
 
 ParticleEffect::ParticleEffect(const std::vector<ChromaData> &args) : ChromaObject("Particle"), body(0, 0, 0, 1)
@@ -64,9 +66,80 @@ ParticleSystem::ParticleSystem(const std::vector<ChromaData> &args)
     }
 }
 
+float calculate_collision_time(const PhysicsBody& body1, const PhysicsBody& body2) {
+    float delta_pos = body2.prev_position - body1.prev_position;
+    float delta_vel = body2.prev_velocity - body1.prev_velocity;
+    float delta_acc = body2.acceleration - body1.acceleration;
+    float delta_t = -1;
+
+    if (delta_acc != 0) { // Solve a quadratic equation
+        // solving for t in 0.5 * at^2 + vt + p
+        float discrim = delta_vel * delta_vel - 4 * 0.5 * delta_acc * delta_pos;
+        if (discrim < 0)
+            return -1;
+        float sqrt_discrim = sqrt(discrim);
+        delta_t = (-delta_vel - sqrt_discrim) / delta_acc;
+        if (delta_t < 0)
+            delta_t = (-delta_vel + sqrt_discrim) / delta_acc;
+    }
+    else if (delta_vel != 0) // Solve a linear equation
+        delta_t = -delta_pos / delta_vel;
+    else  // No relative movement -> No collision
+        return -1;
+
+    if (delta_vel < 0)
+        return -1;
+    return delta_vel;
+}
+
+void calculate_collision(float time_delta, PhysicsBody& body1, PhysicsBody& body2) {
+    float collision_time = calculate_collision_time(body1, body2);
+    if (collision_time < 0 || collision_time > time_delta) // Collision not possible in this tick
+        return;
+    CollisionEvent event(body1, body2, collision_time); 
+    body1.collisions.push_back(event);
+    body2.collisions.push_back(event);
+}
+
 void ParticleSystem::tick(const ChromaState &state)
 {
     this->screen = std::vector<vec4>(state.pixel_length);
+
+    // Physics tick
+    // 1. Calculate bounding intervals
+    std::vector<std::tuple<float, bool, PhysicsBody*>> interval_points;
+    for (const std::shared_ptr<ParticleEffect>& particle : this->particles) {
+        PhysicsBody& body = particle->get_body();
+        body.tick(state.delta_time);
+        
+        float left, right;
+        if (body.position < body.prev_position) {
+            left = body.position;
+            right = body.prev_position;
+        } else {
+            left = body.prev_position;
+            right = body.position;
+        }
+        interval_points.push_back({left, false, &body});
+        interval_points.push_back({right, true, &body});
+    }
+    
+    // 2. Sort intervals by start time
+    std::sort(interval_points.begin(), interval_points.end());
+
+    // 3. Find overlaps
+    std::unordered_set<PhysicsBody*> active_intervals;
+    for (size_t i = 0; i < interval_points.size(); i++) {
+        std::tuple<float, bool, PhysicsBody*> point = interval_points[i];
+        if (std::get<1>(point)) {
+            active_intervals.erase(std::get<2>(point));
+        }
+        else {
+            for (PhysicsBody* body: active_intervals) {
+                calculate_collision(state.delta_time, *body, *std::get<2>(point));
+            }
+        }
+    }
 
     std::vector<std::shared_ptr<ParticleEffect>> dead_particles;
     for (auto& particle : this->particles) {
@@ -92,7 +165,6 @@ void ParticleSystem::tick(const ChromaState &state)
         this->particles.insert(new_particle);
     }
     this->pending_particles.clear();
-    // fprintf(stderr, "SYSTEM TICK END\n");
 }
 
 vec4 ParticleSystem::draw(float index, const ChromaState &state) const
@@ -133,10 +205,10 @@ void EmitterBehavior::tick(ParticleSystem &system, ParticleEffect &particle, con
 void EmitterBehavior::emit(ParticleSystem &system, ParticleEffect &particle)
 {
     PhysicsBody body(
-        particle.get_body().pos() + this->particle->get_body().pos(), 
-        particle.get_body().vel() + this->particle->get_body().vel(), 
-        particle.get_body().acc(), 
-        particle.get_body().mass()
+        particle.get_body().position + this->particle->get_body().position, 
+        particle.get_body().velocity + this->particle->get_body().velocity, 
+        particle.get_body().acceleration, 
+        particle.get_body().mass
     );
     auto emission = this->particle->clone(body);
     fprintf(stderr, "EMISSION %d\n", emission->is_alive());
