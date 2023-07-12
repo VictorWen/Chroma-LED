@@ -5,7 +5,7 @@
  
 CC = g++
 CXX = g++
-CFLAGS = -Wall -g -O0 -I libraries/boost_1_82_0
+CFLAGS = -Wall -g -O0 -I libraries/boost_1_82_0 
 CXXFLAGS = -std=c++17 -pthread -Wall -g -O2 -I libraries/boost_1_82_0
 RM=rm -f
 
@@ -23,6 +23,9 @@ all: chroma
 
 chroma: $(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
+
+win: $(OBJS)
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ -lws2_32
 
 clean:
 	$(RM) $(OBJS) $(DEPFILES)

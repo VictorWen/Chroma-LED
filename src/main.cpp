@@ -18,6 +18,7 @@
 #include "evaluator.h"
 #include "effects.h"
 #include "particles.h"
+#include "disco.h"
 
 const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
     .add_argument("R", NUMBER_TYPE, "red value 0-255")
@@ -181,6 +182,7 @@ void run_stdin(ChromaEnvironment& cenv) {
         _setmode(_fileno(stdout), _O_BINARY);
     #endif
     ChromaController controller;
+    UDPDisco disco;
 
     std::vector<ChromaData> data;
     controller.set_effect(std::make_shared<RainbowEffect>(data));
@@ -188,7 +190,7 @@ void run_stdin(ChromaEnvironment& cenv) {
     fprintf(stderr, "Starting input thread\n");
     std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(controller));
     fprintf(stderr, "Starting controller\n");
-    controller.run(60, 150, callback);
+    controller.run(60, 150, disco);
     thread.join();
 }
 

@@ -12,12 +12,14 @@
 #include <boost/variant/get.hpp>
 
 #include "chromatic.h"
+#include "disco.h"
 
 class ChromaRuntimeException;
 class ChromaObject;
 class ChromaData;
 class ChromaFunction;
 class ChromaEnvironment;
+class DiscoController;
 
 double get_now();
 
@@ -113,6 +115,7 @@ class ChromaController {
             this->_curr_effect = effect;
         }
         void run(int fps, size_t pixel_length, void callback (const std::vector<vec4>&));
+        void run(int fps, size_t pixel_length, DiscoController& disco);
 };
 
 #endif
