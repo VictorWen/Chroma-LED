@@ -75,11 +75,14 @@ class ParticleEffect : public ChromaObject {
         void kill() { this->alive = false; }
 };
 
+typedef std::tuple<float, bool, PhysicsBody*> INTERVAL_POINT;
 class ParticleSystem : public ChromaEffect {
     private:
         std::vector<vec4> screen;
         std::unordered_set<std::shared_ptr<ParticleEffect>> particles;
         std::unordered_set<std::shared_ptr<ParticleEffect>> pending_particles;
+        void process_collisions(float delta_time);
+        std::vector<INTERVAL_POINT> calculate_intervals(float delta_time);
     public:
         ParticleSystem(const std::vector<ChromaData>& args);
         void tick(const ChromaState& state);

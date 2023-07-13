@@ -107,47 +107,7 @@ void ParticleSystem::tick(const ChromaState &state)
     this->screen = std::vector<vec4>(state.pixel_length);
 
     // Physics tick
-    // 1. Calculate bounding intervals
-    std::vector<std::tuple<float, bool, PhysicsBody*>> interval_points;
-    for (const std::shared_ptr<ParticleEffect>& particle : this->particles) {
-        PhysicsBody& body = particle->get_body();
-        body.tick(state.delta_time);
-        
-        float left, right;
-        if (body.position < body.prev_position) {
-            left = body.position;
-            right = body.prev_position;
-        } else {
-            left = body.prev_position;
-            right = body.position;
-        }
-        // fprintf(stderr, "LEFT: %f, RIGHT: %f\n", left, right);
-        interval_points.push_back({left, false, &body});
-        interval_points.push_back({right, true, &body});
-    }
-
-    // fprintf(stderr, "Intervals: %d\n", interval_points.size());
-    
-    // 2. Sort intervals by start time
-    std::sort(interval_points.begin(), interval_points.end());
-    // for (auto i : interval_points) {
-        // fprintf(stderr, "point (%f, %d, %x)", std::get<0>(i), std::get<1>(i), std::get<2>(i));
-    // }
-
-    // 3. Find overlaps
-    std::unordered_set<PhysicsBody*> active_intervals;
-    for (size_t i = 0; i < interval_points.size(); i++) {
-        std::tuple<float, bool, PhysicsBody*> point = interval_points[i];
-        if (std::get<1>(point)) {
-            active_intervals.erase(std::get<2>(point));
-        }
-        else {
-            for (PhysicsBody* body: active_intervals) {
-                calculate_collision(state.delta_time, *body, *std::get<2>(point));
-            }
-            active_intervals.insert(std::get<2>(point));
-        }
-    }
+    process_collisions(state.delta_time);
 
     std::vector<std::shared_ptr<ParticleEffect>> dead_particles;
     for (auto& particle : this->particles) {
@@ -191,6 +151,49 @@ vec4 ParticleSystem::draw(float index, const ChromaState &state) const
     }
 
     return color;
+}
+
+void ParticleSystem::process_collisions(float delta_time) {
+    // 1. Calculate bounding intervals
+    std::vector<INTERVAL_POINT> interval_points = calculate_intervals(delta_time);
+    
+    // 2. Sort intervals by start time
+    std::sort(interval_points.begin(), interval_points.end());
+
+    // 3. Find overlaps
+    std::unordered_set<PhysicsBody*> active_intervals;
+    for (size_t i = 0; i < interval_points.size(); i++) {
+        INTERVAL_POINT point = interval_points[i];
+        if (std::get<1>(point)) {
+            active_intervals.erase(std::get<2>(point));
+        }
+        else {
+            for (PhysicsBody* body: active_intervals) {
+                calculate_collision(delta_time, *body, *std::get<2>(point));
+            }
+            active_intervals.insert(std::get<2>(point));
+        }
+    }
+}
+
+std::vector<INTERVAL_POINT> ParticleSystem::calculate_intervals(float delta_time) {
+    std::vector<INTERVAL_POINT> interval_points;
+    for (const std::shared_ptr<ParticleEffect>& particle : this->particles) {
+        PhysicsBody& body = particle->get_body(); // TODO: change to somehow only expose a mutable physics body and nowhere else?
+        body.tick(delta_time);
+        
+        float left, right;
+        if (body.position < body.prev_position) {
+            left = body.position;
+            right = body.prev_position;
+        } else {
+            left = body.prev_position;
+            right = body.position;
+        }
+        interval_points.push_back({left, false, &body});
+        interval_points.push_back({right, true, &body});
+    }
+    return interval_points;
 }
 
 EmitterBehavior::EmitterBehavior(const std::vector<ChromaData> &args) :

@@ -85,7 +85,8 @@
         "slist": "cpp",
         "numbers": "cpp",
         "csetjmp": "cpp",
-        "scoped_allocator": "cpp"
+        "scoped_allocator": "cpp",
+        "cuchar": "cpp"
     },
     "C_Cpp.default.compilerPath": "/usr/bin/g++",
     "C_Cpp.errorSquiggles": "enabled",
