@@ -1,5 +1,6 @@
-#include "chroma.h"
+#include <boost/asio.hpp>
 
+#include "chroma.h"
 
 double get_now() {
     return std::chrono::duration_cast<std::chrono::microseconds>(
@@ -51,7 +52,10 @@ void ChromaController::run(int fps, size_t pixel_length, DiscoController& disco)
 
     double start_time = get_now();
     
+    boost::asio::thread_pool pool(4);
+    
     while (this->running) {
+
         double curr_time = get_now();
         double delta_time = curr_time - start_time;
         start_time = curr_time;
@@ -60,15 +64,24 @@ void ChromaController::run(int fps, size_t pixel_length, DiscoController& disco)
         state.time += delta_time / 1e6;
 
         this->_curr_effect->tick(state);
-        // TODO: add multithreading
+        std::vector<std::future<bool>> futures;
         for (size_t i = 0; i < pixel_length; i++) {
             float index = static_cast<float>(i) / pixel_length;
-            pixels[i] = this->_curr_effect->draw(index, state);
+            std::packaged_task<bool()> task([i, index, this, &state, &pixels](){
+                pixels[i] = this->_curr_effect->draw(index, state);\
+                return true;
+            });
+            futures.push_back(boost::asio::post(pool, std::move(task)));
         }
+
+        for (auto& future : futures) {
+            future.wait();
+        }
+
         if (disco.write(pixels)) {
             return;
         }
-
         usleep(us_per_frame);
     }
+    pool.join();
 }
