@@ -16,7 +16,7 @@
 
 #include "disco.h"
 
-#define PORT     8080
+#define PORT     12345
 #define MAXLINE 1024
 
 const char* LOCAL_HOST = "127.0.0.1";
@@ -103,4 +103,18 @@ int write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
     memcpy(buffer, &packet, packetLen);
 
     return packetLen;
+}
+
+
+DiscoConfig HTTPConfigManager::getConfig() {
+    return this->config;
+}
+
+void HTTPConfigManager::start() {
+    fprintf(stderr, "Starting HTTP server\n");
+
+    this->ws.register_resource("/hello", &hwr);
+    this->ws.start(false);
+    
+    fprintf(stderr, "HERE\n");
 }

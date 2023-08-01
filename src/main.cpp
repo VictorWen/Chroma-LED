@@ -25,6 +25,10 @@ const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
     .add_argument("G", NUMBER_TYPE, "green value 0-255")
     .add_argument("B", NUMBER_TYPE, "blue value 0-255")
     .set_description("Displays a color with the given RGB values");
+const auto ALPHA_CMD = CommandBuilder<AlphaEffect>("alpha")
+    .add_argument("EFFECT", OBJECT_TYPE, "effect to scale")
+    .add_argument("ALPHA", NUMBER_TYPE, "value, 0 to 1, to scale effect by")
+    .set_description("Scales the colors of an effect by an alpha value");
 const auto SPLIT_CMD = CommandBuilder<SplitEffect>("split")
     .add_expanding_argument("EFFECTS...", OBJECT_TYPE, "two or more effects to split between", 2)
     .set_description("Splits the strip in half with two effects on each");
@@ -94,6 +98,26 @@ const auto EMITTER_CMD = CommandBuilder<EmitterBehavior>("emitter")
 const auto LIFE_CMD = CommandBuilder<LifetimeBehavior>("life")
     .add_argument("LIFETIME", NUMBER_TYPE, "time in seconds for the particle to live")
     .set_description("Destroys the particle after a certain amount of time");
+
+
+const auto ADD_LAYER_CMD = LambdaAdapter("addlayer", "Add a new layer to the Chroma Controller", std::vector<std::shared_ptr<CommandArgument>>(),
+    [](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+        env.controller->add_layer();
+        env.controller->set_current_layer(env.controller->get_num_layers() - 1);
+        std::cerr << "Added a layer: " << env.controller->get_current_layer() << " of " << env.controller->get_num_layers() << std::endl;
+        return ChromaData();
+    }
+);
+
+const auto SET_LAYER_CMD = LambdaAdapter("setlayer", "Set current layer in the Chroma Controller", std::vector<std::shared_ptr<CommandArgument>>({
+        std::make_shared<TypeArgument>("INDEX", NUMBER_TYPE, "index (starting from 0) of the layer")
+    }),
+    [](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+        env.controller->set_current_layer(args[0].get_int());
+        std::cerr << "Set layer: " << env.controller->get_current_layer() << " of " << env.controller->get_num_layers() << std::endl;
+        return ChromaData();
+    }
+);
 
 
 void callback(const std::vector<vec4>& pixels) {
@@ -181,77 +205,60 @@ void run_stdin(ChromaEnvironment& cenv) {
     #ifdef _WIN32
         _setmode(_fileno(stdout), _O_BINARY);
     #endif
-    ChromaController controller;
+    
     UDPDisco disco;
 
     std::vector<ChromaData> data;
-    controller.set_effect(std::make_shared<RainbowEffect>(data));
+    cenv.controller->set_effect(std::make_shared<RainbowEffect>(data));
 
     fprintf(stderr, "Starting input thread\n");
-    std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(controller));
+    std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(*cenv.controller));
     fprintf(stderr, "Starting controller\n");
-    controller.run(60, 150, disco);
+    cenv.controller->run(60, 150, disco);
     thread.join();
+}
+
+template <typename T>
+void register_command(ChromaEnvironment& cenv, const CommandBuilder<T>& cmd) {
+    fprintf(stderr, "%s\n", cmd.get_help().c_str());
+    cenv.functions[cmd.get_name()] = std::make_unique<CommandBuilder<T>>(cmd);
 }
 
 
 int main() {
+    HTTPConfigManager httpServer;
+    httpServer.start();
+
+    ChromaController controller;
     ChromaEnvironment cenv;
+    cenv.controller = &controller;
 
-    fprintf(stderr, "%s\n", RGB_CMD.get_help().c_str());
-    cenv.functions["rgb"] = std::make_unique<CommandBuilder<ColorEffect>>(RGB_CMD);
-
-    fprintf(stderr, "%s\n", SPLIT_CMD.get_help().c_str());
-    cenv.functions["split"] = std::make_unique<CommandBuilder<SplitEffect>>(SPLIT_CMD);
-
-    fprintf(stderr, "%s\n", GRADIENT_CMD.get_help().c_str());
-    cenv.functions["gradient"] = std::make_unique<CommandBuilder<GradientEffect>>(GRADIENT_CMD);
-
-    fprintf(stderr, "%s\n", RAINBOW_CMD.get_help().c_str());
-    cenv.functions["rainbow"] = std::make_unique<CommandBuilder<RainbowEffect>>(RAINBOW_CMD);
-
-    fprintf(stderr, "%s\n", SLIDE_CMD.get_help().c_str());
-    cenv.functions["slide"] = std::make_unique<CommandBuilder<SlideEffect>>(SLIDE_CMD);
-
-    fprintf(stderr, "%s\n", WIPE_CMD.get_help().c_str());
-    cenv.functions["wipe"] = std::make_unique<CommandBuilder<WipeEffect>>(WIPE_CMD);
-
-    fprintf(stderr, "%s\n", WORM_CMD.get_help().c_str());
-    cenv.functions["worm"] = std::make_unique<CommandBuilder<WormEffect>>(WORM_CMD);
-
-    fprintf(stderr, "%s\n", BLINK_CMD.get_help().c_str());
-    cenv.functions["blink"] = std::make_unique<CommandBuilder<BlinkEffect>>(BLINK_CMD);
-
-    fprintf(stderr, "%s\n", BLINKFADE_CMD.get_help().c_str());
-    cenv.functions["blinkfade"] = std::make_unique<CommandBuilder<BlinkFadeEffect>>(BLINKFADE_CMD);
-
-    fprintf(stderr, "%s\n", FADEIN_CMD.get_help().c_str());
-    cenv.functions["fadein"] = std::make_unique<CommandBuilder<FadeInEffect>>(FADEIN_CMD);
-
-    fprintf(stderr, "%s\n", FADEOUT_CMD.get_help().c_str());
-    cenv.functions["fadeout"] = std::make_unique<CommandBuilder<FadeOutEffect>>(FADEOUT_CMD);
-
-    fprintf(stderr, "%s\n", WAVE_CMD.get_help().c_str());
-    cenv.functions["wave"] = std::make_unique<CommandBuilder<WaveEffect>>(WAVE_CMD);
-
-    fprintf(stderr, "%s\n", WHEEL_CMD.get_help().c_str());
-    cenv.functions["wheel"] = std::make_unique<CommandBuilder<WheelEffect>>(WHEEL_CMD);
-
-    fprintf(stderr, "%s\n", PBODY_CMD.get_help().c_str());
-    cenv.functions["pbody"] = std::make_unique<CommandBuilder<PhysicsBody>>(PBODY_CMD);
-
-    fprintf(stderr, "%s\n", PARTICLE_CMD.get_help().c_str());
-    cenv.functions["particle"] = std::make_unique<CommandBuilder<ParticleEffect>>(PARTICLE_CMD);
-
-    fprintf(stderr, "%s\n", PSYSTEM_CMD.get_help().c_str());
-    cenv.functions["psystem"] = std::make_unique<CommandBuilder<ParticleSystem>>(PSYSTEM_CMD);
-
-    fprintf(stderr, "%s\n", EMITTER_CMD.get_help().c_str());
-    cenv.functions["emitter"] = std::make_unique<CommandBuilder<EmitterBehavior>>(EMITTER_CMD);
-
-    fprintf(stderr, "%s\n", LIFE_CMD.get_help().c_str());
-    cenv.functions["life"] = std::make_unique<CommandBuilder<LifetimeBehavior>>(LIFE_CMD);
+    register_command(cenv, RGB_CMD);
+    register_command(cenv, ALPHA_CMD);
+    register_command(cenv, SPLIT_CMD);
+    register_command(cenv, GRADIENT_CMD);
+    register_command(cenv, RAINBOW_CMD);
+    register_command(cenv, SLIDE_CMD);
+    register_command(cenv, WIPE_CMD);
+    register_command(cenv, WORM_CMD);
+    register_command(cenv, BLINK_CMD);
+    register_command(cenv, BLINKFADE_CMD);
+    register_command(cenv, FADEIN_CMD);
+    register_command(cenv, FADEOUT_CMD);
+    register_command(cenv, WAVE_CMD);
+    register_command(cenv, WHEEL_CMD);
     
+    register_command(cenv, PBODY_CMD);
+    register_command(cenv, PARTICLE_CMD);
+    register_command(cenv, PSYSTEM_CMD);
+    register_command(cenv, EMITTER_CMD);
+    register_command(cenv, LIFE_CMD);
+
+    fprintf(stderr, "%s\n", ADD_LAYER_CMD.get_help().c_str());
+    cenv.functions["addlayer"] = std::make_unique<LambdaAdapter>(ADD_LAYER_CMD);
+
+    fprintf(stderr, "%s\n", SET_LAYER_CMD.get_help().c_str());
+    cenv.functions["setlayer"] = std::make_unique<LambdaAdapter>(SET_LAYER_CMD);
 
     // process_input("let r = rainbow", cenv, true);
     // process_input("let ten = 10", cenv, true);
@@ -282,7 +289,7 @@ int main() {
     process_input("let particleA = particle RED (pbody 0 10) 2", cenv, false);
     process_input("let particleB = particle BLUE (pbody 150 -10) 2", cenv, false);
 
-    // fprintf(stderr, "Done processing input\n");
+    fprintf(stderr, "Done processing input\n");
 
     run_stdin(cenv);
 

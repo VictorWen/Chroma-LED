@@ -60,6 +60,7 @@ class ExpandingTypeArgument : public CommandArgument {
 };
 
 
+// TODO: refactor, remove the template from ChromaCommand
 template <class T>
 class ChromaCommand : public ChromaFunction {
     protected: 
@@ -72,7 +73,24 @@ class ChromaCommand : public ChromaFunction {
             ChromaFunction(call_name), call_name(call_name), description(description), arguments(args) { }
         std::string get_format() const;
         std::string get_help() const;
-        ChromaData call(const std::vector<ChromaData>& args, const ChromaEnvironment& env);
+        ChromaData call(const std::vector<ChromaData>& args, ChromaEnvironment& env);
+};
+
+class LambdaAdapter : public ChromaFunction {
+    protected:
+        std::string call_name;
+        std::string description;
+        std::vector<std::shared_ptr<CommandArgument>> arguments;
+        std::function<ChromaData(const std::vector<ChromaData>& args, ChromaEnvironment& env)> lambda;
+        LambdaAdapter(const std::string& call_name) : ChromaFunction(call_name), call_name(call_name) { }
+    public:
+        // TODO: fix arguments
+        LambdaAdapter(const std::string& call_name, const std::string& description, const std::vector<std::shared_ptr<CommandArgument>>& args, 
+            std::function<ChromaData(const std::vector<ChromaData>& args, ChromaEnvironment& env)> lambda) :
+            ChromaFunction(call_name), call_name(call_name), description(description), arguments(args), lambda(lambda) { }
+        std::string get_format() const;
+        std::string get_help() const;
+        ChromaData call(const std::vector<ChromaData>& args, ChromaEnvironment& env);
 };
 
 template <class T>
@@ -112,7 +130,7 @@ std::string ChromaCommand<T>::get_help() const {
 // SO, using a greedy approach instead
 // TODO: figure out regex parsing like algorithm?
 template <class T>
-ChromaData ChromaCommand<T>::call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) { 
+ChromaData ChromaCommand<T>::call(const std::vector<ChromaData>& args, ChromaEnvironment& env) { 
     std::vector<ChromaData> converted;
     size_t i = 0, j = 0, prev_i = 0;
     

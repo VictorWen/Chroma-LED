@@ -38,7 +38,7 @@ def write_to_pixels(pixels, frame):
 
 
 local_IP = "127.0.0.1"
-local_port = 8080
+local_port = 12345
 buffer_size = 4096
 
 res_msg = "Hello there!"

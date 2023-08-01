@@ -1,7 +1,7 @@
 #include "evaluator.h"
 
 
-ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) {
+ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, ChromaEnvironment& env) {
     ChromaEnvironment scopedEnv = env;
     
     if (args.size() != this->var_names.size()) {

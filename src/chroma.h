@@ -19,9 +19,8 @@ class ChromaObject;
 class ChromaData;
 class ChromaFunction;
 class ChromaEnvironment;
+class ChromaController;
 class DiscoController;
-
-double get_now();
 
 class ChromaRuntimeException : public std::exception {
     private:
@@ -95,26 +94,39 @@ class ChromaFunction {
     public:
         ChromaFunction(const std::string& name) : name(name) {}
         std::string get_name() const { return name; }
-        virtual ChromaData call(const std::vector<ChromaData>& args, const ChromaEnvironment& env) = 0;
+        virtual ChromaData call(const std::vector<ChromaData>& args, ChromaEnvironment& env) = 0;
 };
 
 struct ChromaEnvironment {
     ChromaData ret_val;
     std::unordered_map<std::string, std::shared_ptr<ChromaFunction>> functions;
     std::unordered_map<std::string, ChromaData> variables;
+    ChromaController* controller;
 };
 
 class ChromaController {
     private:
-        bool running;
-        std::shared_ptr<ChromaEffect> _curr_effect;
-        
+        std::vector<std::shared_ptr<ChromaEffect>> layers = std::vector<std::shared_ptr<ChromaEffect>>({nullptr});
+        size_t current_layer = 0;
+        bool running = false;
     public:
         // TODO: return some kind of status?
         void set_effect(const std::shared_ptr<ChromaEffect>& effect) {
-            this->_curr_effect = effect;
+            this->layers[this->current_layer] = effect;
         }
-        void run(int fps, size_t pixel_length, void callback (const std::vector<vec4>&));
+        void add_layer() {
+            this->layers.push_back(nullptr);
+        }
+        void set_current_layer(size_t index) {
+            this->current_layer = index;
+        }
+        size_t get_num_layers() {
+            return this->layers.size();
+        }
+        size_t get_current_layer() {
+            return this->current_layer;
+        }
+        void run(int fps, size_t pixel_length, std::function<int(const std::vector<vec4>&)> callback);
         void run(int fps, size_t pixel_length, DiscoController& disco);
 };
 

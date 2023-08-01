@@ -12,7 +12,7 @@ class ScriptFunction : public ChromaFunction {
     public:
         ScriptFunction(const std::string& name, const std::vector<std::string>& var_names, std::unique_ptr<ParseNode>&& code):
             ChromaFunction(name), var_names(var_names), code(move(code)) {}
-        ChromaData call(const std::vector<ChromaData>& args, const ChromaEnvironment& env);
+        ChromaData call(const std::vector<ChromaData>& args, ChromaEnvironment& env);
 };
 
 class Evaluator : public NodeVisitor {

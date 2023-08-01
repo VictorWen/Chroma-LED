@@ -19,7 +19,7 @@ class ParseException : public std::exception {
         }
 };
 
-enum TokenType {
+enum ChromaTokenType {
     STRING, NUMBER, IDENTIFIER, LITERAL
 };
 
@@ -28,9 +28,9 @@ struct ParseEnvironment {
 };
 
 struct ParseToken {
-    ParseToken(std::string val, TokenType type) : val(val), type(type) {}
+    ParseToken(std::string val, ChromaTokenType type) : val(val), type(type) {}
     std::string val;
-    TokenType type;
+    ChromaTokenType type;
 };
 
 class Tokenizer {

@@ -86,7 +86,9 @@
         "numbers": "cpp",
         "csetjmp": "cpp",
         "scoped_allocator": "cpp",
-        "cuchar": "cpp"
+        "cuchar": "cpp",
+        "format": "cpp",
+        "semaphore": "cpp"
     },
     "C_Cpp.default.compilerPath": "C:\\msys64\\mingw64\\bin\\g++.exe",
     "C_Cpp.errorSquiggles": "enabled",

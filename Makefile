@@ -6,7 +6,7 @@
 CC = g++
 CXX = g++
 CFLAGS = -Wall -g -O0 -I libraries/boost_1_82_0 
-CXXFLAGS = -std=c++17 -pthread -Wall -g -O2 -I libraries/boost_1_82_0
+CXXFLAGS = -std=c++17 -pthread -Wall -g -O2 -I libraries/boost_1_82_0 
 RM=rm -f
 
 #Find all the C++ files in the src/ directory
@@ -22,10 +22,10 @@ DEPFILES:=$(patsubst %.cpp,%.d,$(SRCS))
 all: chroma
 
 chroma: $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ -lhttpserver
 
 win: $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ -lws2_32
+	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ -lws2_32 -lhttpserver
 
 clean:
 	$(RM) $(OBJS) $(DEPFILES)

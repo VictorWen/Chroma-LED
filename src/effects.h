@@ -12,6 +12,15 @@ class ColorEffect : public ChromaEffect {
         vec4 draw(float index, const ChromaState& state) const { return color; }
 };
 
+class AlphaEffect : public ChromaEffect {
+    private:
+        std::shared_ptr<ChromaEffect> effect;
+        float alpha;
+    public:
+        AlphaEffect(const std::vector<ChromaData>& args) : effect(args[0].get_effect()), alpha(args[1].get_float()) {}
+        void tick(const ChromaState& state) { this->effect->tick(state); }
+        vec4 draw(float index, const ChromaState& state) const { return this->effect->draw(index, state) * alpha; }
+};
 
 class RainbowEffect : public ChromaEffect {
     public:

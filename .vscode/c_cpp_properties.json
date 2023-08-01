@@ -4,10 +4,12 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/libraries/boost_1_82_0"
+                "${workspaceFolder}/libraries/boost_1_82_0",
+                "${workspaceFolder}/libraries\\libhttpserver-0.19.0\\src",
+                "${workspaceFolder}/libraries/libhttpserver-0.19.0/src/httpserver"
             ],
             "defines": [],
-            "compilerPath": "C:/Program Files/mingw-w64/x86_64-8.1.0-posix-seh-rt_v6-rev0/mingw64/bin/g++.exe",
+            "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "linux-gcc-arm",
