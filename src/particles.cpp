@@ -51,6 +51,7 @@ vec4 ParticleEffect::draw(float index, const ChromaState &state) const
     return this->effect->draw(index, state);
 }
 
+// TODO: fix hiding effect.clone
 std::shared_ptr<ParticleEffect> ParticleEffect::clone(const PhysicsBody &body)
 {
     auto output = std::make_shared<ParticleEffect>(*this);

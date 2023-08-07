@@ -20,7 +20,7 @@ class ChromaData;
 class ChromaFunction;
 class ChromaEnvironment;
 class ChromaController;
-class DiscoController;
+class DiscoMaster;
 
 class ChromaRuntimeException : public std::exception {
     private:
@@ -127,7 +127,7 @@ class ChromaController {
             return this->current_layer;
         }
         void run(int fps, size_t pixel_length, std::function<int(const std::vector<vec4>&)> callback);
-        void run(int fps, size_t pixel_length, DiscoController& disco);
+        void run(int fps, size_t pixel_length, DiscoMaster& disco);
 };
 
 #endif

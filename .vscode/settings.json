@@ -88,11 +88,16 @@
         "scoped_allocator": "cpp",
         "cuchar": "cpp",
         "format": "cpp",
-        "semaphore": "cpp"
+        "semaphore": "cpp",
+        "barrier": "cpp",
+        "latch": "cpp",
+        "syncstream": "cpp"
     },
     "C_Cpp.default.compilerPath": "C:\\msys64\\mingw64\\bin\\g++.exe",
     "C_Cpp.errorSquiggles": "enabled",
     "cSpell.words": [
-        "cenv"
+        "cenv",
+        "httpserver",
+        "webserver"
     ]
 }

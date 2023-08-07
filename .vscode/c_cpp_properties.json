@@ -6,14 +6,20 @@
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/libraries/boost_1_82_0",
                 "${workspaceFolder}/libraries\\libhttpserver-0.19.0\\src",
-                "${workspaceFolder}/libraries/libhttpserver-0.19.0/src/httpserver"
+                "${workspaceFolder}/libraries/libhttpserver-0.19.0/src/httpserver",
+                "${workspaceFolder}/libraries/nlohmann_json"
             ],
             "defines": [],
             "compilerPath": "C:/msys64/mingw64/bin/g++.exe",
             "cStandard": "c17",
             "cppStandard": "gnu++14",
             "intelliSenseMode": "linux-gcc-arm",
-            "configurationProvider": "ms-vscode.cmake-tools"
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compilerArgs": [
+                "-std=c++17",
+                "-pthread",
+                "-Wall"
+            ]
         }
     ],
     "version": 4

@@ -20,6 +20,7 @@
 #include "particles.h"
 #include "disco.h"
 
+// TODO: potential optimization, use string_view for read-only strings
 const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
     .add_argument("R", NUMBER_TYPE, "red value 0-255")
     .add_argument("G", NUMBER_TYPE, "green value 0-255")
@@ -206,7 +207,9 @@ void run_stdin(ChromaEnvironment& cenv) {
         _setmode(_fileno(stdout), _O_BINARY);
     #endif
     
-    UDPDisco disco;
+    auto httpServer = std::make_unique<HTTPConfigManager>();
+    httpServer->start();
+    UDPDisco disco(std::move(httpServer));
 
     std::vector<ChromaData> data;
     cenv.controller->set_effect(std::make_shared<RainbowEffect>(data));
@@ -226,9 +229,6 @@ void register_command(ChromaEnvironment& cenv, const CommandBuilder<T>& cmd) {
 
 
 int main() {
-    HTTPConfigManager httpServer;
-    httpServer.start();
-
     ChromaController controller;
     ChromaEnvironment cenv;
     cenv.controller = &controller;
@@ -247,7 +247,7 @@ int main() {
     register_command(cenv, FADEOUT_CMD);
     register_command(cenv, WAVE_CMD);
     register_command(cenv, WHEEL_CMD);
-    
+
     register_command(cenv, PBODY_CMD);
     register_command(cenv, PARTICLE_CMD);
     register_command(cenv, PSYSTEM_CMD);
@@ -283,13 +283,13 @@ int main() {
     // process_input("split a b c d e f g", cenv, true);
     // process_input("h", cenv, true);
 
-    process_input("let testParticle = particle RED (pbody 10 5) 2 [(life 10)]", cenv, false);
-    process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
+    // process_input("let testParticle = particle RED (pbody 10 5) 2 [(life 10)]", cenv, false);
+    // process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
 
-    process_input("let particleA = particle RED (pbody 0 10) 2", cenv, false);
-    process_input("let particleB = particle BLUE (pbody 150 -10) 2", cenv, false);
+    // process_input("let particleA = particle RED (pbody 0 10) 2", cenv, false);
+    // process_input("let particleB = particle BLUE (pbody 150 -10) 2", cenv, false);
 
-    fprintf(stderr, "Done processing input\n");
+    fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
 
     run_stdin(cenv);
 
