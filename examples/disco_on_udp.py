@@ -13,9 +13,6 @@ sys.path.append('./')
 
 
 from emulator_backend import Adafruit_NeoPixel # Use https://github.com/having11/NeoPixel-Emulator
-import numpy as np
-import sys
-
 
 n=150
 n_channels = 4

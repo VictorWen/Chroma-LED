@@ -208,6 +208,11 @@ void run_stdin(ChromaEnvironment& cenv) {
     #endif
     
     auto httpServer = std::make_unique<HTTPConfigManager>();
+    
+    DiscoDiscoverer discoverer(httpServer.get());
+    if (discoverer.send_broadcast() != 0)
+        return;
+    
     httpServer->start();
     UDPDisco disco(std::move(httpServer));
 
