@@ -64,8 +64,7 @@ def write_to_pixels(pixels, frame):
 
 
 def main():
-    pixels = neopixel.NeoPixel(board.D10, n, brightness=0.5, auto_write=False)
-    pixels.setBrightness(100)
+    pixels = neopixel.NeoPixel(board.D10, PIXEL_LEN, brightness=1, auto_write=False)
 
     discover_socket = socket.socket(
         family=socket.AF_INET,
@@ -106,6 +105,7 @@ def main():
     except Exception as e:
         print(e)
         print(frame, len(frame))
+
 
 if __name__ == "__main__":
     main()
