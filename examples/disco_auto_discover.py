@@ -18,7 +18,7 @@ def main():
         family=socket.AF_INET, type=socket.SOCK_DGRAM
     )
     server_socket.bind(('0.0.0.0', PORT))
-    
+
     req_bytes, client_addr = server_socket.recvfrom(BUFFER_SIZE)
     print(req_bytes)
     data = req_bytes.decode()

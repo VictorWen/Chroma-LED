@@ -71,7 +71,7 @@ void ChromaController::run(int fps, size_t pixel_length, std::function<int(const
 
 void ChromaController::run(int fps, size_t pixel_length, DiscoMaster& disco) { //TODO: Maybe use a generic injection instead of DiscoMaster?
     this->run(fps, pixel_length, [&](const std::vector<vec4>& pixels){
-        if (disco.write(pixels)) {
+        if (disco.write(this->component_id, pixels)) {
             return -1;
         }
         return 0;

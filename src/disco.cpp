@@ -117,7 +117,7 @@ void HTTPConfigManager::start() {
     fprintf(stderr, "HTTP server started\n");
 }
 
-int UDPDisco::write(const std::vector<vec4>& pixels) {
+int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
 #ifdef _WIN32
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -128,6 +128,7 @@ int UDPDisco::write(const std::vector<vec4>& pixels) {
 #endif
 
     // Create socket
+    // TODO: keep socket around, don't destroy after every write
     int client_socket = -1;
     client_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (client_socket == -1) {
@@ -135,14 +136,18 @@ int UDPDisco::write(const std::vector<vec4>& pixels) {
         return 1;
     }
 
+    // Get config
+    DiscoHardwareData hw_data = this->manager->get_hardware_data(id);
+    DiscoConfig config = this->manager->get_config(id);
+
     // Define address
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = inet_addr(LOCAL_HOST);
+    server_addr.sin_addr.s_addr = hw_data.address;
 
     // Write packet to socket
-    char send_buffer[4096];
+    char send_buffer[4096]; // TODO: BUFFER OVERFLOW!!!!
     int packet_len = write_packet(pixels, send_buffer);
     int send_result = sendto(client_socket, send_buffer, packet_len, 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
     if (send_result < 0) {
@@ -152,7 +157,7 @@ int UDPDisco::write(const std::vector<vec4>& pixels) {
 
     // Get response
     int bytes_received;
-    char server_buf[1025];
+    char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
     int server_buf_len = 1024;
 
     struct sockaddr_in sender_addr;
@@ -184,7 +189,9 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
     }
 #endif
 
-    fprintf(stderr, "Starting broadcast\n");
+    // TODO: deal with timeouts
+
+    fprintf(stderr, "Starting auto-discovery\n");
 
     // Create socket
     int client_socket = -1;
@@ -208,18 +215,16 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
     server_addr.sin_addr.s_addr = INADDR_BROADCAST;
 
     // Write packet to socket
-    char send_buffer[4096] = "DISCO DISCOVER\n";
+    char send_buffer[4096] = "DISCO DISCOVER\n"; 
     int send_result = sendto(client_socket, send_buffer, strlen(send_buffer), 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
     if (send_result < 0) {
         print_error("Sending got an error");
         return 1;
     }
 
-    fprintf(stderr, "Finished broadcast\n");
-
     // Get response
     int bytes_received;
-    char server_buf[1025];
+    char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
     int server_buf_len = 1024;
 
     struct sockaddr_in sender_addr;
@@ -232,7 +237,7 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
     }
     server_buf[bytes_received] = '\0';
 
-    fprintf(stderr, "Received: %s back\n", server_buf);
+    fprintf(stderr, "Got response: %s\n", server_buf);
 
     // Save hardware info
     std::string_view response(server_buf);
@@ -247,20 +252,33 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
 
     this->manager->add_hardware_data(hardware_data);
 
-    // TODO: DEBUGGING REMOVE
-    DiscoHardwareData test_data = this->manager->get_hardware_data("TEST");
-    json test_json_data = test_data;
-    fprintf(stderr, "Have hardware data: %s\n", test_json_data.dump(2).c_str());
-
     // TODO: user prompt to connect
 
     // Return connect
-    strcpy(send_buffer, "DISCO CONNECT\n{\"discoVersion\":1,\"configProtocol\":\"HTTP\",\"dataProtocol\":\"UDP\"}");
+    strcpy(send_buffer, "DISCO CONNECT\n{\"discoVersion\":1,\"configProtocol\":\"HTTP\",\"dataProtocol\":\"UDP\"}"); // TODO: generalize response data
     send_result = sendto(client_socket, send_buffer, strlen(send_buffer), 0, (struct sockaddr *) & sender_addr, sender_addr_size);
     if (send_result < 0) {
         print_error("Sending got an error");
         return 1;
     }
+
+    // TODO: Disco heartbeat
+
+    // Wait for READY message
+    bytes_received = recvfrom(client_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
+    if (bytes_received < 0) {
+        print_error("recvfrom failed with error");
+        return 1;
+    }
+    server_buf[bytes_received] = '\0';
+
+    response = std::string_view(server_buf);
+    if (response != DISCOVER_READY) {
+        fprintf(stderr, "Unexpected response\n");
+        return 1;
+    }
+
+    fprintf(stderr, "Finished auto-discovery scan\n");
 
 #ifdef _WIN32
     closesocket(client_socket);

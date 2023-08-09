@@ -11,6 +11,7 @@
 #define PORT 12345
 #define DISCOVER_PORT 12346
 #define DISCOVER_FOUND "DISCO FOUND\n"
+#define DISCOVER_READY "DISCO READY\n"
 
 struct DiscoPacket { 
     uint32_t start;
@@ -32,7 +33,7 @@ struct DiscoHardwareData {
 
 class DiscoMaster {
     public:
-        virtual int write(const std::vector<vec4>& pixels) = 0;
+        virtual int write(const std::string& id, const std::vector<vec4>& pixels) = 0;
 };
 
 class DiscoConfigManager {
@@ -73,7 +74,7 @@ class UDPDisco : public DiscoMaster {
         std::unique_ptr<DiscoConfigManager> manager;
     public:
         UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std::move(manager)) { }
-        int write(const std::vector<vec4>& pixels);
+        int write(const std::string& id, const std::vector<vec4>& pixels);
 };
 
 class DiscoDiscoverer {

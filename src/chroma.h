@@ -50,8 +50,8 @@ class ChromaObject {
     private:
         std::string obj_typename;
     public:
-        virtual ~ChromaObject() {}
         ChromaObject(const std::string& obj_typename) : obj_typename(obj_typename) { }
+        virtual ~ChromaObject() {}
         const std::string& get_typename() const { return this->obj_typename; }
         virtual std::shared_ptr<ChromaObject> clone() { return std::make_shared<ChromaObject>(*this); }
 };
@@ -60,6 +60,7 @@ class ChromaEffect : public ChromaObject {
     public:
         ChromaEffect() : ChromaObject("Effect") { }
         ChromaEffect(const std::string& sub_typename) : ChromaObject(sub_typename + "Effect") { }
+        virtual ~ChromaEffect() { }
         virtual void tick(const ChromaState& state) { }
         virtual vec4 draw(float index, const ChromaState& state) const = 0;
 };
@@ -93,6 +94,7 @@ class ChromaFunction {
     std::string name;
     public:
         ChromaFunction(const std::string& name) : name(name) {}
+        virtual ~ChromaFunction() { }
         std::string get_name() const { return name; }
         virtual ChromaData call(const std::vector<ChromaData>& args, ChromaEnvironment& env) = 0;
 };
@@ -106,6 +108,7 @@ struct ChromaEnvironment {
 
 class ChromaController {
     private:
+        std::string component_id = std::string("TEST");
         std::vector<std::shared_ptr<ChromaEffect>> layers = std::vector<std::shared_ptr<ChromaEffect>>({nullptr});
         size_t current_layer = 0;
         bool running = false;
@@ -125,6 +128,12 @@ class ChromaController {
         }
         size_t get_current_layer() {
             return this->current_layer;
+        }
+        std::string get_component_id() {
+            return this->component_id;
+        }
+        void set_component_id(const std::string& id) {
+            this->component_id = id;
         }
         void run(int fps, size_t pixel_length, std::function<int(const std::vector<vec4>&)> callback);
         void run(int fps, size_t pixel_length, DiscoMaster& disco);

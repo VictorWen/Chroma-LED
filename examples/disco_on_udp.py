@@ -34,7 +34,7 @@ def write_to_pixels(pixels, frame):
     pixels.show()
 
 
-local_IP = "127.0.0.1"
+local_IP = "0.0.0.0"
 local_port = 12345
 buffer_size = 4096
 
