@@ -20,12 +20,14 @@ func_call :: = '(' IDENTIFIER  expression* ')'
 list ::= '[' expression* ']'
 */
 
-void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output) {
+void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output, std::stack<char>& bracket_stack) {
     std::regex keyword_regex(R"(^(let|func))");
     std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))"); // positive or negative, without or without decimal point, with at least one digit
     std::regex string_regex(R"(^\".*\")");
     std::regex identifier_regex(R"(^[A-Za-z_]+\w*)"); // alphabetic character followed by any number of alphanumerics
+    // std::regex newline_regex(R"(\n+\s*)");
     std::regex white_space_regex(R"(^\s+)");
+    // std::regex space_regex(R"([^\S\r\n]+)");
 
     size_t index = 0;
 
@@ -53,7 +55,14 @@ void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output) {
             index += match.length();
         }
         else {
-            output.push_back(ParseToken(input.substr(index, 1), LITERAL));
+            std::string literal = input.substr(index, 1);
+            output.push_back(ParseToken(literal, LITERAL));
+            if (literal == "(" || literal == "[")
+                bracket_stack.push(literal[0]);
+            else if (literal == ")" && bracket_stack.top() == '(')
+                bracket_stack.pop();
+            else if (literal == "]" && bracket_stack.top() == '[')
+                bracket_stack.pop();
             index += 1;
         }
     }
@@ -102,6 +111,9 @@ void Command::parse(std::deque<ParseToken>& tokens, ParseEnvironment env) {
         std::unique_ptr<ParseNode> next(new SetVar());
         next->parse(tokens, env);
         this->children.push_back(move(next));
+    }
+    else if (tokens.empty()) {
+        return;
     }
     else {
         std::unique_ptr<ParseNode> next(new Statement());

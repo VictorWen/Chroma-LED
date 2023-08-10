@@ -37,7 +37,7 @@ class Tokenizer {
     public:
         Tokenizer() { }
         virtual ~Tokenizer() { }
-        virtual void tokenize(std::string input, std::deque<ParseToken>& output);
+        virtual void tokenize(std::string input, std::deque<ParseToken>& output, std::stack<char>& bracket_stack);
 };
 
 class ParseNode {

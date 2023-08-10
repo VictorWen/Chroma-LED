@@ -1,0 +1,18 @@
+let RED = rgb 255 0 0
+let GREEN = rgb 0 255 0
+let BLUE = rgb 0 0 255
+
+let YELLOW = rgb 128 128 0
+let CYAN = rgb 0 128 128
+let PURPLE = rgb 128 0 128
+let VIOLET = PURPLE
+
+let ORANGE = rgb 192 64 0
+let LIME = rgb 64 192 0
+let AQUA = rgb 0 192 64
+let AQUAMARINE = AQUA
+let TEAL = rgb 0 64 192
+let INDIGO = rgb 64 0 192
+let MAGENTA = rgb 192 0 64
+
+slide rainbow 10

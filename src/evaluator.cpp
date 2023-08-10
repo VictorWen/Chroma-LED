@@ -22,6 +22,10 @@ ChromaData ScriptFunction::call(const std::vector<ChromaData>& args, ChromaEnvir
 }
 
 void Evaluator::visit(const Command &n) {
+    if (n.children.empty()) {
+        this->env.ret_val = ChromaData();
+        return;
+    }
     n.children[0]->accept(*this);
 }
 

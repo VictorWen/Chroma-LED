@@ -5,6 +5,7 @@
 #include <memory>
 #include <math.h>
 #include <thread>
+#include <fstream>
 
 #ifdef _WIN32
 #include <io.h>
@@ -14,6 +15,7 @@
 #include "chroma.h"
 #include "chromatic.h"
 #include "chroma_script.h"
+#include "chroma_cli.h"
 #include "commands.h"
 #include "evaluator.h"
 #include "effects.h"
@@ -127,76 +129,38 @@ void callback(const std::vector<vec4>& pixels) {
     fwrite(buffer, 16, n, stdout);
 }
 
-bool process_input(const std::string& input, ChromaEnvironment& cenv, const bool verbose=false) {
-    std::deque<ParseToken> tokens;
-    Tokenizer tokenizer;
-
-    if (verbose) 
-        fprintf(stderr, "Starting tokenization\n");
-
-    tokenizer.tokenize(input, tokens);
-
-    if (verbose) {
-        std::cerr << tokens.size() << std::endl;
-        for (auto& token : tokens) {
-            std::cerr << token.val << " ";
-        }
-        std::cerr << std::endl;
-    }
-    
-    std::unique_ptr<Command> command(new Command());
-    ParseEnvironment env;
-
-    try {
-        command->parse(tokens, env);
-        if (!tokens.empty()) {
-            std::string error = "Got too many tokens, unable to parse '" + tokens.front().val + "'";
-            throw ParseException(error.c_str());
-        }
-    } catch (ParseException& e) {
-        cenv.ret_val = ChromaData();
-        fprintf(stderr, "Error: %s\n", e.what());
-        return false;
-    }
-
-    if (verbose) {
-        fprintf(stderr, "Done Parsing\n");
-
-        PrintVisitor visitor;
-        visitor.visit(*command);
-        visitor.print(stderr);
-    }
-
-    try {
-        Evaluator ev(cenv);
-        ev.visit(*command);
-        const ChromaData& ret_val = ev.get_env().ret_val;
-
-        if (verbose) {
-            fprintf(stderr, "Done Evaluating\n");
-            if (ret_val.get_type() != NULL_TYPE)
-                std::cerr << ret_val.get_type() /*<< " " << ret_val.get_obj()->get_typename()*/ << std::endl;
-        }
-        return true;
-    } catch (ChromaRuntimeException& e) {
-        cenv.ret_val = ChromaData();
-        fprintf(stderr, "Error: %s\n", e.what());
-        return false;
-    }
-}
-
 void handle_stdin_input(ChromaEnvironment& cenv, ChromaController& controller) {
+    ChromaCLI cli;
+    int result = -1;
     fprintf(stderr, "Input Command: ");
     for (std::string line; std::getline(std::cin, line);) {
-        std::cerr << line << std::endl;
-        if (process_input(line, cenv, false) && cenv.ret_val.get_type() == OBJECT_TYPE) {
+        result = cli.process_input(line, cenv);
+        if (result == PARSE_GOOD && cenv.ret_val.get_type() == OBJECT_TYPE) {
             try { // TODO: need a better way to check effect type       
                 controller.set_effect(cenv.ret_val.get_effect());
             } catch (ChromaRuntimeException& e) {
                 fprintf(stderr, "Error: %s\n", e.what());
             }
         }
-        fprintf(stderr, "Input Command: ");
+        if (result != PARSE_CONTINUE)
+            fprintf(stderr, "Input Command: ");
+    }
+}
+
+void read_startup(ChromaEnvironment& cenv, ChromaController& controller) {
+    ChromaCLI cli;
+    int result = -1;
+    std::ifstream startup_file ("scripts/startup.chroma");
+    for (std::string line; std::getline(startup_file, line);) {
+        std::cerr << line << std::endl;
+        result = cli.process_input(line, cenv);
+        if (result == PARSE_GOOD && cenv.ret_val.get_type() == OBJECT_TYPE) {
+            try { // TODO: need a better way to check effect type       
+                controller.set_effect(cenv.ret_val.get_effect());
+            } catch (ChromaRuntimeException& e) {
+                fprintf(stderr, "Error: %s from %s\n", e.what(), line.c_str());
+            }
+        }
     }
 }
 
@@ -219,7 +183,7 @@ void run_stdin(ChromaEnvironment& cenv) {
     UDPDisco disco(std::move(httpServer));
 
     std::vector<ChromaData> data;
-    cenv.controller->set_effect(std::make_shared<RainbowEffect>(data));
+    // cenv.controller->set_effect(std::make_shared<RainbowEffect>(data));
 
     fprintf(stderr, "Starting input thread\n");
     std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(*cenv.controller));
@@ -269,9 +233,9 @@ int main() {
     // process_input("let r = rainbow", cenv, true);
     // process_input("let ten = 10", cenv, true);
     // process_input("func slide10 x = slide x ten", cenv, true);
-    process_input("let RED = rgb 255 0 0", cenv, false);
-    process_input("let GREEN = rgb 0 255 0", cenv, false);
-    process_input("let BLUE = rgb 0 0 255", cenv, false);
+    // process_input("let RED = rgb 255 0 0", cenv, false);
+    // process_input("let GREEN = rgb 0 255 0", cenv, false);
+    // process_input("let BLUE = rgb 0 0 255", cenv, false);
     // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
     // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
 
@@ -296,6 +260,7 @@ int main() {
 
     fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
 
+    read_startup(cenv, controller);
     run_stdin(cenv);
 
     return 0;
