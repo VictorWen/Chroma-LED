@@ -3,6 +3,8 @@ import json
 import sys
 import os
 import numpy as np
+import requests
+import time
 
 abspath = os.path.realpath(__file__)
 dname = os.path.dirname(abspath)
@@ -23,6 +25,7 @@ HARDWARE_DATA = {
     "controllerID": "TEST",
     "device": "windows",
     "discoVersion": 1,
+    "address": '127.0.0.1'
 }
 
 PIXEL_LEN = 150
@@ -36,26 +39,21 @@ DATA_PORT = 12345
 RES_MSG = "Hello there!"
 RES_BYTES = str.encode(RES_MSG)
 
+MASTER_IP = '127.0.0.1'
+CONFIG_PORT = 8080
 
-def wait_for_discover(server_socket):
-    req_bytes, client_addr = server_socket.recvfrom(BUFFER_SIZE)
-    print(req_bytes)
-    data = req_bytes.decode()
-    print(f"received: {data}, from: {client_addr}")
-    if data == SCAN_MSG:
-        print("Got SCAN_DATA!")
-        server_socket.sendto(
-            f"DISCO FOUND\n{json.dumps(HARDWARE_DATA)}".encode(),
-            client_addr
+
+def send_config():
+    code = 0
+    while code != 200:
+        response = requests.post(
+            f"http://{MASTER_IP}:{CONFIG_PORT}/config",
+            json=HARDWARE_DATA
         )
-        req_bytes, client_addr = server_socket.recvfrom(BUFFER_SIZE)
-        print(req_bytes)
-        data = req_bytes.decode()
-        if (data.startswith(CONNECT_MSG)):
-            json_data = json.loads(data[len(CONNECT_MSG):])
-            print(f"received: {json.dumps(json_data, indent=2)}, " +
-                  f"from: {client_addr}")
-    return client_addr
+        print(response.status_code)
+        print(response.content)
+        code = response.status_code
+        time.sleep(2)
 
 
 def write_to_pixels(pixels, frame):
@@ -76,22 +74,13 @@ def main():
     pixels.begin()
     pixels.setBrightness(100)
 
-    discover_socket = socket.socket(
-        family=socket.AF_INET,
-        type=socket.SOCK_DGRAM
-    )
-    discover_socket.bind(('0.0.0.0', DISCOVER_PORT))
-
-    master_addr = wait_for_discover(discover_socket)
-
     server_socket = socket.socket(
         family=socket.AF_INET,
         type=socket.SOCK_DGRAM
     )
     server_socket.bind(('0.0.0.0', DATA_PORT))
 
-    discover_socket.sendto(READY_MSG.encode(), master_addr)
-    discover_socket.close()
+    send_config()
 
     print("Finished discovery")
 

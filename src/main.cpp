@@ -120,7 +120,6 @@ const auto SET_LAYER_CMD = LambdaAdapter("setlayer", "Set current layer in the C
     }
 );
 
-
 void callback(const std::vector<vec4>& pixels) {
     const int n = 150;
     vec4 buffer[n] = {0};
@@ -186,7 +185,6 @@ bool process_input(const std::string& input, ChromaEnvironment& cenv, const bool
     }
 }
 
-
 void handle_stdin_input(ChromaEnvironment& cenv, ChromaController& controller) {
     fprintf(stderr, "Input Command: ");
     for (std::string line; std::getline(std::cin, line);) {
@@ -209,11 +207,15 @@ void run_stdin(ChromaEnvironment& cenv) {
     
     auto httpServer = std::make_unique<HTTPConfigManager>();
     
-    DiscoDiscoverer discoverer(httpServer.get());
-    if (discoverer.send_broadcast() != 0)
-        return;
+    // DiscoDiscoverer discoverer(httpServer.get());
+    // if (discoverer.send_broadcast() != 0)
+    //     return;
     
     httpServer->start();
+
+    fprintf(stderr, "Waiting for Disco config...\n");
+    httpServer->wait_for_any_config();
+
     UDPDisco disco(std::move(httpServer));
 
     std::vector<ChromaData> data;
@@ -231,7 +233,6 @@ void register_command(ChromaEnvironment& cenv, const CommandBuilder<T>& cmd) {
     fprintf(stderr, "%s\n", cmd.get_help().c_str());
     cenv.functions[cmd.get_name()] = std::make_unique<CommandBuilder<T>>(cmd);
 }
-
 
 int main() {
     ChromaController controller;
@@ -273,7 +274,6 @@ int main() {
     process_input("let BLUE = rgb 0 0 255", cenv, false);
     // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
     // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
-
 
     // process_input("let r = gradient RED GREEN BLUE", cenv, true);
     // process_input("let a = wipe r 10", cenv, true);

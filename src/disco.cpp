@@ -24,16 +24,6 @@ const char* LOCAL_HOST = "127.0.0.1";
 
 void to_json(json& j, const DiscoConfig& config) {
     j = json{
-        {"test", config.test}
-    };
-}
-
-void from_json(const json& j, DiscoConfig& config) {
-    j.at("test").get_to(config.test);
-}
-
-void to_json(json& j, const DiscoHardwareData& config) {
-    j = json{
         {"controllerID", config.controllerID},
         {"device", config.device},
         {"discoVersion", config.discoVersion},
@@ -41,12 +31,12 @@ void to_json(json& j, const DiscoHardwareData& config) {
     };
 }
 
-void from_json(const json& j, DiscoHardwareData& config) {
+void from_json(const json& j, DiscoConfig& config) {
     j.at("controllerID").get_to(config.controllerID);
     j.at("device").get_to(config.device);
     j.at("discoVersion").get_to(config.discoVersion);
     if (j.count("address") > 0)
-        j.at("address").get_to(config.discoVersion);
+        j.at("address").get_to(config.address);
 }
 
 int write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
@@ -78,32 +68,29 @@ std::shared_ptr<httpserver::http_response> ConfigPostResource::render_POST(const
         return std::shared_ptr<httpserver::http_response>(new httpserver::string_response("ERROR: Content too long")); // TODO: error handling
     
     std::string_view json_body = req.get_content();
-    fprintf(stderr, "GOT BODY: %s\n ==END== \n", json_body.data());
+    // fprintf(stderr, "GOT BODY: %s\n ==END== \n", json_body.data());
 
     json data = json::parse(json_body);
-    fprintf(stderr, "GOT DATA: %s\n ==END== \n", data.dump(2).c_str());
+    // fprintf(stderr, "GOT DATA: %s\n ==END== \n", data.dump(2).c_str());
 
     auto config = data.get<DiscoConfig>();
-    this->manager->set_config("test-id", config);
+    this->manager->set_config(config.controllerID, config);
 
-    return std::shared_ptr<httpserver::http_response>(new httpserver::string_response("Hello, World!"));
+    fprintf(stderr, "Updated config for %s\n", config.controllerID.c_str());
+
+    return std::shared_ptr<httpserver::http_response>(new httpserver::string_response("Got config for " + config.controllerID));
 }
 
 DiscoConfig HTTPConfigManager::get_config(std::string id) {
-    return this->configs[id];
+    if (this->configs.count(id) > 0)
+        return this->configs[id];
+    else
+        return DiscoConfig {0};
 }
 
 DiscoConfig HTTPConfigManager::set_config(std::string id, DiscoConfig config) {
     this->configs[id] = config;
     return this->configs[id];
-}
-
-void HTTPConfigManager::add_hardware_data(DiscoHardwareData data) {
-    this->hardware_data[data.controllerID] = data;
-}
-
-DiscoHardwareData HTTPConfigManager::get_hardware_data(std::string id) {
-    return this->hardware_data[id];
 }
 
 void HTTPConfigManager::start() {
@@ -115,6 +102,12 @@ void HTTPConfigManager::start() {
     this->ws.register_resource("/config", &(this->config_resource));
     this->ws.start(false);
     fprintf(stderr, "HTTP server started\n");
+}
+
+void HTTPConfigManager::wait_for_any_config() {
+    while (this->configs.empty()) { // TODO: include TCP alternative?
+        usleep(1000);
+    }
 }
 
 int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
@@ -137,14 +130,13 @@ int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
     }
 
     // Get config
-    DiscoHardwareData hw_data = this->manager->get_hardware_data(id);
     DiscoConfig config = this->manager->get_config(id);
 
     // Define address
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = hw_data.address;
+    server_addr.sin_addr.s_addr = inet_addr(config.address.c_str());
 
     // Write packet to socket
     char send_buffer[4096]; // TODO: BUFFER OVERFLOW!!!!
@@ -179,6 +171,7 @@ int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
     return 0;
 }
 
+//! NOTE: requires router to support broadcast packets
 int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
 #ifdef _WIN32
     WSADATA wsaData;
@@ -247,10 +240,11 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
     }
     
     json json_data = json::parse(response.substr(strlen(DISCOVER_FOUND)));
-    DiscoHardwareData hardware_data = json_data.get<DiscoHardwareData>();
-    hardware_data.address = sender_addr.sin_addr.s_addr;
+    DiscoConfig config = json_data.get<DiscoConfig>();
+    inet_ntop(AF_INET, &(sender_addr.sin_addr), send_buffer, 1000);
+    config.address = std::string(send_buffer);
 
-    this->manager->add_hardware_data(hardware_data);
+    this->manager->set_config(config.controllerID, config);
 
     // TODO: user prompt to connect
 

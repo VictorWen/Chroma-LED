@@ -21,14 +21,10 @@ struct DiscoPacket {
 };
 
 struct DiscoConfig {
-    std::string test;
-};
-
-struct DiscoHardwareData {
     std::string controllerID;
     std::string device;
     int discoVersion;
-    unsigned long address;
+    std::string address;
 };
 
 class DiscoMaster {
@@ -40,8 +36,6 @@ class DiscoConfigManager {
     public:
         virtual DiscoConfig get_config(std::string id) = 0;
         virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
-        virtual void add_hardware_data(DiscoHardwareData data) = 0;
-        virtual DiscoHardwareData get_hardware_data(std::string id) = 0;
 };
 
 class HTTPConfigManager;
@@ -54,19 +48,17 @@ class ConfigPostResource : public httpserver::http_resource {
         std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request& req);
 };
 
-class HTTPConfigManager : public DiscoConfigManager {
+class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via HTTP, may require refactor
     private:
         std::unordered_map<std::string, DiscoConfig> configs;
-        std::unordered_map<std::string, DiscoHardwareData> hardware_data;
         httpserver::webserver ws;
         ConfigPostResource config_resource;
     public:
         HTTPConfigManager() : ws(httpserver::create_webserver(8080)), config_resource(this) { } // TODO: deal with ports
         DiscoConfig get_config(std::string id);
         DiscoConfig set_config(std::string id, DiscoConfig config);
-        void add_hardware_data(DiscoHardwareData data);
-        DiscoHardwareData get_hardware_data(std::string id);
         void start();
+        void wait_for_any_config();
 };
 
 class UDPDisco : public DiscoMaster {
