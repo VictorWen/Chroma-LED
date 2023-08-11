@@ -135,6 +135,12 @@ class ChromaController {
         void set_component_id(const std::string& id) {
             this->component_id = id;
         }
+        void stop() {
+            this->running = false;
+        }
+        bool is_running() {
+            return this->running;
+        }
         void run(int fps, size_t pixel_length, std::function<int(const std::vector<vec4>&)> callback);
         void run(int fps, size_t pixel_length, DiscoMaster& disco);
 };

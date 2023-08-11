@@ -122,6 +122,13 @@ const auto SET_LAYER_CMD = LambdaAdapter("setlayer", "Set current layer in the C
     }
 );
 
+const auto EXIT_CMD = LambdaAdapter("exit", "Exits the program", std::vector<std::shared_ptr<CommandArgument>>(),
+    [](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+        env.controller->stop();
+        return ChromaData();
+    }
+);
+
 void callback(const std::vector<vec4>& pixels) {
     const int n = 150;
     vec4 buffer[n] = {0};
@@ -129,46 +136,40 @@ void callback(const std::vector<vec4>& pixels) {
     fwrite(buffer, 16, n, stdout);
 }
 
-void handle_stdin_input(ChromaEnvironment& cenv, ChromaController& controller) {
-    ChromaCLI cli;
-    int result = -1;
-    fprintf(stderr, "Input Command: ");
-    for (std::string line; std::getline(std::cin, line);) {
-        result = cli.process_input(line, cenv);
-        if (result == PARSE_GOOD && cenv.ret_val.get_type() == OBJECT_TYPE) {
-            try { // TODO: need a better way to check effect type       
-                controller.set_effect(cenv.ret_val.get_effect());
-            } catch (ChromaRuntimeException& e) {
-                fprintf(stderr, "Error: %s\n", e.what());
-            }
-        }
-        if (result != PARSE_CONTINUE)
-            fprintf(stderr, "Input Command: ");
-    }
-}
+int main() {
+    ChromaController controller;
+    ChromaEnvironment cenv;
+    cenv.controller = &controller;
 
-void read_startup(ChromaEnvironment& cenv, ChromaController& controller) {
-    ChromaCLI cli;
-    int result = -1;
-    std::ifstream startup_file ("scripts/startup.chroma");
-    for (std::string line; std::getline(startup_file, line);) {
-        std::cerr << line << std::endl;
-        result = cli.process_input(line, cenv);
-        if (result == PARSE_GOOD && cenv.ret_val.get_type() == OBJECT_TYPE) {
-            try { // TODO: need a better way to check effect type       
-                controller.set_effect(cenv.ret_val.get_effect());
-            } catch (ChromaRuntimeException& e) {
-                fprintf(stderr, "Error: %s from %s\n", e.what(), line.c_str());
-            }
-        }
-    }
-}
+    ChromaCLI cli(cenv);
 
-void run_stdin(ChromaEnvironment& cenv) {
-    #ifdef _WIN32
-        _setmode(_fileno(stdout), _O_BINARY);
-    #endif
-    
+    cli.register_command(RGB_CMD);
+    cli.register_command(ALPHA_CMD);
+    cli.register_command(SPLIT_CMD);
+    cli.register_command(GRADIENT_CMD);
+    cli.register_command(RAINBOW_CMD);
+    cli.register_command(SLIDE_CMD);
+    cli.register_command(WIPE_CMD);
+    cli.register_command(WORM_CMD);
+    cli.register_command(BLINK_CMD);
+    cli.register_command(BLINKFADE_CMD);
+    cli.register_command(FADEIN_CMD);
+    cli.register_command(FADEOUT_CMD);
+    cli.register_command(WAVE_CMD);
+    cli.register_command(WHEEL_CMD);
+
+    cli.register_command(PBODY_CMD);
+    cli.register_command(PARTICLE_CMD);
+    cli.register_command(PSYSTEM_CMD);
+    cli.register_command(EMITTER_CMD);
+    cli.register_command(LIFE_CMD);
+
+    cli.register_command(ADD_LAYER_CMD);
+    cli.register_command(SET_LAYER_CMD);
+    cli.register_command(EXIT_CMD);
+
+    fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
+
     auto httpServer = std::make_unique<HTTPConfigManager>();
     
     // DiscoDiscoverer discoverer(httpServer.get());
@@ -181,87 +182,9 @@ void run_stdin(ChromaEnvironment& cenv) {
     httpServer->wait_for_any_config();
 
     UDPDisco disco(std::move(httpServer));
-
-    std::vector<ChromaData> data;
-    // cenv.controller->set_effect(std::make_shared<RainbowEffect>(data));
-
-    fprintf(stderr, "Starting input thread\n");
-    std::thread thread(handle_stdin_input, std::ref(cenv), std::ref(*cenv.controller));
-    fprintf(stderr, "Starting controller\n");
-    cenv.controller->run(60, 150, disco);
-    thread.join();
-}
-
-template <typename T>
-void register_command(ChromaEnvironment& cenv, const CommandBuilder<T>& cmd) {
-    fprintf(stderr, "%s\n", cmd.get_help().c_str());
-    cenv.functions[cmd.get_name()] = std::make_unique<CommandBuilder<T>>(cmd);
-}
-
-int main() {
-    ChromaController controller;
-    ChromaEnvironment cenv;
-    cenv.controller = &controller;
-
-    register_command(cenv, RGB_CMD);
-    register_command(cenv, ALPHA_CMD);
-    register_command(cenv, SPLIT_CMD);
-    register_command(cenv, GRADIENT_CMD);
-    register_command(cenv, RAINBOW_CMD);
-    register_command(cenv, SLIDE_CMD);
-    register_command(cenv, WIPE_CMD);
-    register_command(cenv, WORM_CMD);
-    register_command(cenv, BLINK_CMD);
-    register_command(cenv, BLINKFADE_CMD);
-    register_command(cenv, FADEIN_CMD);
-    register_command(cenv, FADEOUT_CMD);
-    register_command(cenv, WAVE_CMD);
-    register_command(cenv, WHEEL_CMD);
-
-    register_command(cenv, PBODY_CMD);
-    register_command(cenv, PARTICLE_CMD);
-    register_command(cenv, PSYSTEM_CMD);
-    register_command(cenv, EMITTER_CMD);
-    register_command(cenv, LIFE_CMD);
-
-    fprintf(stderr, "%s\n", ADD_LAYER_CMD.get_help().c_str());
-    cenv.functions["addlayer"] = std::make_unique<LambdaAdapter>(ADD_LAYER_CMD);
-
-    fprintf(stderr, "%s\n", SET_LAYER_CMD.get_help().c_str());
-    cenv.functions["setlayer"] = std::make_unique<LambdaAdapter>(SET_LAYER_CMD);
-
-    // process_input("let r = rainbow", cenv, true);
-    // process_input("let ten = 10", cenv, true);
-    // process_input("func slide10 x = slide x ten", cenv, true);
-    // process_input("let RED = rgb 255 0 0", cenv, false);
-    // process_input("let GREEN = rgb 0 255 0", cenv, false);
-    // process_input("let BLUE = rgb 0 0 255", cenv, false);
-    // process_input("let p = split RED (gradient RED BLUE)", cenv, true);
-    // process_input("gradient (slide10 p) (slide10 r)", cenv, true);
-
-    // process_input("let r = gradient RED GREEN BLUE", cenv, true);
-    // process_input("let a = wipe r 10", cenv, true);
-    // process_input("let b = blink r 10", cenv, true);
-    // process_input("let c = blinkfade r 10", cenv, true);
-    // process_input("let d = fadein r 10", cenv, true);
-    // process_input("let e = fadeout r 10", cenv, true);
-    // process_input("let f = wave r 10 10", cenv, true);
-    // process_input("let g = wheel r 10 10", cenv, true);
-    // process_input("let h = worm r 10", cenv, true);
-
-    // process_input("split a b c d e f g", cenv, true);
-    // process_input("h", cenv, true);
-
-    // process_input("let testParticle = particle RED (pbody 10 5) 2 [(life 10)]", cenv, false);
-    // process_input("let emitterParticle = particle GREEN (pbody 10) 1 [(emitter testParticle 0.1)]", cenv, false);
-
-    // process_input("let particleA = particle RED (pbody 0 10) 2", cenv, false);
-    // process_input("let particleB = particle BLUE (pbody 150 -10) 2", cenv, false);
-
-    fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
-
-    read_startup(cenv, controller);
-    run_stdin(cenv);
+    
+    cli.read_scriptfile();
+    cli.run_stdin(disco);
 
     return 0;
 }

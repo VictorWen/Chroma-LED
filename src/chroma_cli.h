@@ -15,8 +15,20 @@ class ChromaCLI {
         std::deque<ParseToken> tokens;
         std::stack<char> brackets;
         Tokenizer tokenizer;
+        ChromaEnvironment& cenv;
+        void handle_stdin_input();
     public:
-        int process_input(const std::string& input, ChromaEnvironment& cenv);
+        ChromaCLI(ChromaEnvironment& cenv) : cenv(cenv) { }
+        int process_input(const std::string& input);
+        template<typename T> void register_command(const T& cmd);
+        void run_stdin(DiscoMaster& disco);
+        void read_scriptfile(const std::string& filename = "scripts/startup.chroma");
 };
+
+template<typename T>
+void ChromaCLI::register_command(const T& cmd) {
+    fprintf(stderr, "%s\n", cmd.get_help().c_str());
+    this->cenv.functions[cmd.get_name()] = std::make_unique<T>(cmd);
+}
 
 #endif

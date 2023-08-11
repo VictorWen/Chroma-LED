@@ -87,6 +87,7 @@ def main():
     print("UDP server running")
 
     while (True):
+        server_socket.settimeout(5)
         req_bytes, client_addr = server_socket.recvfrom(BUFFER_SIZE)
         start = int.from_bytes(req_bytes[0:4], "little")
         end = int.from_bytes(req_bytes[4:8], "little")
