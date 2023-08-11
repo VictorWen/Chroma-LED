@@ -11,7 +11,6 @@
 #include <fstream>
 
 #include "evaluator.h"
-#include "commands.h"
 
 void ChromaCLI::handle_stdin_input() {
     int result = -1;
@@ -76,6 +75,19 @@ void ChromaCLI::run_stdin(DiscoMaster& disco) {
             return ChromaData();
         }
     ));
+
+    // this->register_command(LambdaAdapter("help", "Get the help page for a command", std::vector<std::shared_ptr<CommandArgument>>({
+    //     std::make_shared<TypeArgument>("COMMAND", STRING_TYPE, "name of the command to get help")
+    // }),
+    //     [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+    //         std::string cmd_name = args[0].get_string();
+    //         if (this->commands.count(cmd_name) > 0)
+    //             fprintf("=== HELP ===\n%s\n===========\n", this->commands[cmd_name].get_help().c_str());
+    //         else
+    //             fprintf("ERROR: command %s does not exists", cmd_name.c_str());
+    //         return ChromaData();
+    //     }
+    // ));
 
     fprintf(stderr, "Starting input thread\n");
     std::thread thread([&](){this->handle_stdin_input();});

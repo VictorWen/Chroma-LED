@@ -2,9 +2,11 @@
 #define CHROMA_CLI_H
 
 #include <deque>
+#include <unordered_map>
 
 #include "chroma.h"
 #include "chroma_script.h"
+#include "commands.h"
 
 #define PARSE_GOOD 0
 #define PARSE_BAD 1

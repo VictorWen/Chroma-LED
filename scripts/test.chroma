@@ -1,0 +1,18 @@
+let a = (gradient 
+    RED 
+    GREEN
+)
+
+let b = (slide
+    rainbow
+    10
+)
+
+(wave
+    (split
+        a
+        b
+    )
+    10
+    150
+)

@@ -152,7 +152,8 @@ ChromaData ChromaCommand<T>::call(const std::vector<ChromaData>& args, ChromaEnv
             j++;
         }
         else if (i == args.size()) {
-            std::string error = "Command received not enough arguments, " + cmd_arg->get_name() + " is required but is missing a value";
+            std::string error = "Command received not enough arguments, " + cmd_arg->get_name() + " is required but is missing a value\n" +
+                this->get_help();
             throw ChromaRuntimeException(error.c_str());
         }
         else {
