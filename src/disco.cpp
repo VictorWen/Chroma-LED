@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <string>
 #include <string_view>
+#include <chrono>
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -167,6 +168,94 @@ int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
     WSACleanup();
 #else
     close(client_socket);
+#endif
+    return 0;
+}
+
+int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
+        mdns_entry_type_t entry, uint16_t query_id, uint16_t rtype,
+        uint16_t rclass, uint32_t ttl, const void* data, size_t size,
+        size_t name_offset, size_t name_length, size_t record_offset,
+        size_t record_length, void* user_data) {
+    fprintf(stderr, "GOT mDNS response, rtype: %d\n", rtype);
+    const size_t buff_size = 256;
+    char name_buffer[buff_size];
+    
+    if (entry != MDNS_ENTRYTYPE_ADDITIONAL)
+        return 0;
+    
+    mdns_string_t entry_str = mdns_string_extract(data, size, &name_offset, name_buffer, buff_size);
+    std::string entry_name(entry_str.str, entry_str.length - 1); // subtract 1 to remove period
+
+    auto manager = static_cast<DiscoConfigManager*>(user_data);
+
+    if (rtype == MDNS_RECORDTYPE_PTR) {
+        mdns_string_t name_str = mdns_record_parse_ptr(data, size, record_offset, record_length,
+            name_buffer, buff_size);
+        std::string name(name_str.str, name_str.length);
+        fprintf(stderr, "GOT PTR record: %s\n", name.c_str());
+    }
+    else if (rtype == MDNS_RECORDTYPE_SRV) {
+        mdns_record_srv_t srv = mdns_record_parse_srv(data, size, record_offset, record_length,
+            name_buffer, buff_size);
+        std::string name(srv.name.str, srv.name.length);
+        fprintf(stderr, "GOT SRV record: %s, port: %d\n", name.c_str(), srv.port);
+    }
+    else if (rtype == MDNS_RECORDTYPE_A) {
+        struct sockaddr_in addr;
+		mdns_record_parse_a(data, size, record_offset, record_length, &addr);
+        inet_ntop(AF_INET, &(addr.sin_addr), name_buffer, buff_size);
+        std::string name(name_buffer);
+        fprintf(stderr, "GOT A record: %s %s\n", entry_name.c_str(), name.c_str());
+        manager->set_config(entry_name, {
+            entry_name,
+            "esp8266",
+            1,
+            name
+        });
+    }
+
+    return 0;
+}
+
+int DiscoDiscoverer::send_mDNS_query() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (res != NO_ERROR) {
+        fprintf(stderr, "WSAStartup failed with error %d\n", res);
+        return 1;
+    }
+#endif
+    // Create socket
+    int sock = -1;
+    sock = mdns_socket_open_ipv4(NULL);
+    if (sock < 0) {
+        print_error("socket failed with error");
+        return 1;
+    }
+
+    const size_t buff_size = 2048;
+    void* buffer[buff_size];
+    if (mdns_query_send(sock, MDNS_RECORDTYPE_PTR, "_discoConnect._tcp.local", 24, buffer, buff_size, 0) < 0) {
+        print_error("mdns query failed");
+        return 1;
+    }
+
+    // Collect responses
+    const double timeout = 2;
+    auto timer = std::chrono::high_resolution_clock::now();
+    while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
+        int results = mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, this->manager, 0);
+        if (results > 0)
+            timer = std::chrono::high_resolution_clock::now();
+    }
+
+#ifdef _WIN32
+    closesocket(sock);
+    WSACleanup();
+#else
+    close(sock);
 #endif
     return 0;
 }

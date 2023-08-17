@@ -6,7 +6,7 @@
 CC = g++
 CXX = g++
 CFLAGS = -Wall -g -O0 -I libraries/boost_1_82_0 -I libraries/nlohmann_json
-CXXFLAGS = -std=c++17 -pthread -Wall -g -O2 -I libraries/boost_1_82_0 -I libraries/nlohmann_json
+CXXFLAGS = -std=c++17 -pthread -Wall -g -O2 -I libraries/boost_1_82_0 -I libraries/nlohmann_json -I libraries/mdns
 RM=rm -f
 
 #Find all the C++ files in the src/ directory

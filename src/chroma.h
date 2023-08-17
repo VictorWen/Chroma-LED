@@ -108,7 +108,7 @@ struct ChromaEnvironment {
 
 class ChromaController {
     private:
-        std::string component_id = std::string("TEST");
+        std::string component_id = std::string("chroma.local");
         std::vector<std::shared_ptr<ChromaEffect>> layers = std::vector<std::shared_ptr<ChromaEffect>>({nullptr});
         size_t current_layer = 0;
         bool running = false;

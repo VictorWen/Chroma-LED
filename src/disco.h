@@ -6,6 +6,8 @@
 
 #include <httpserver.hpp>
 
+#include <mdns.h>
+
 #include "chroma.h"
 
 #define PORT 12345
@@ -36,6 +38,7 @@ class DiscoConfigManager {
     public:
         virtual DiscoConfig get_config(std::string id) = 0;
         virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
+        virtual bool has_config(std::string id);
 };
 
 class HTTPConfigManager;
@@ -57,6 +60,7 @@ class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via 
         HTTPConfigManager() : ws(httpserver::create_webserver(8080)), config_resource(this) { } // TODO: deal with ports
         DiscoConfig get_config(std::string id);
         DiscoConfig set_config(std::string id, DiscoConfig config);
+        bool has_config(std::string id) { return this->configs.count(id) > 0; }
         void start();
         void wait_for_any_config();
 };
@@ -72,8 +76,14 @@ class UDPDisco : public DiscoMaster {
 class DiscoDiscoverer {
     private:
         DiscoConfigManager* manager;
+        // int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
+        //                                mdns_entry_type_t entry, uint16_t query_id, uint16_t rtype,
+        //                                uint16_t rclass, uint32_t ttl, const void* data, size_t size,
+        //                                size_t name_offset, size_t name_length, size_t record_offset,
+        //                                size_t record_length, void* user_data);
     public:
         DiscoDiscoverer(DiscoConfigManager* manager) : manager(manager) { }
+        int send_mDNS_query();
         int send_broadcast();
 };
 

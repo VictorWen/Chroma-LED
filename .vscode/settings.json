@@ -97,7 +97,9 @@
     "C_Cpp.errorSquiggles": "enabled",
     "cSpell.words": [
         "cenv",
+        "ENTRYTYPE",
         "httpserver",
+        "mdns",
         "webserver"
     ]
 }

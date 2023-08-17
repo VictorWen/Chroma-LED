@@ -172,9 +172,9 @@ int main() {
 
     auto httpServer = std::make_unique<HTTPConfigManager>();
     
-    // DiscoDiscoverer discoverer(httpServer.get());
-    // if (discoverer.send_broadcast() != 0)
-    //     return;
+    DiscoDiscoverer discoverer(httpServer.get());
+    if (discoverer.send_mDNS_query() != 0)
+        return 1;
     
     httpServer->start();
 
