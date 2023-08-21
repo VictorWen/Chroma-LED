@@ -8,7 +8,7 @@
 
 #include <mdns.h>
 
-#include "chroma.h"
+#include "chroma.h" // TODO: should this dependency be reversed??
 
 #define PORT 12345
 #define DISCOVER_PORT 12346
@@ -31,6 +31,7 @@ struct DiscoConfig {
 
 class DiscoMaster {
     public:
+        virtual ~DiscoMaster() { }
         virtual int write(const std::string& id, const std::vector<vec4>& pixels) = 0;
 };
 
@@ -68,8 +69,10 @@ class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via 
 class UDPDisco : public DiscoMaster {
     private:
         std::unique_ptr<DiscoConfigManager> manager;
+        int disco_socket;
     public:
-        UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std::move(manager)) { }
+        UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager);
+        ~UDPDisco();
         int write(const std::string& id, const std::vector<vec4>& pixels);
 };
 
@@ -83,8 +86,31 @@ class DiscoDiscoverer {
         //                                size_t record_length, void* user_data);
     public:
         DiscoDiscoverer(DiscoConfigManager* manager) : manager(manager) { }
-        int send_mDNS_query();
-        int send_broadcast();
+        int mDNS_auto_discover();
+        int broadcast_auto_discover();
+};
+
+class mDNSRecordManager {
+    private:
+        struct mDNSRecord {
+            std::string query_name;
+            std::string entry_name;
+            std::string host_name;
+            int port;
+            std::unordered_map<std::string, std::string> text;
+        };
+
+        std::unordered_map<std::string, std::string> ip4_table;
+        std::unordered_map<std::string, std::string> ip6_table;
+        std::unordered_map<std::string, std::unique_ptr<mDNSRecord>> records;
+
+    public:
+        void process_PTR(const std::string& query_name, const std::string& record_name);
+        void process_SRV(const std::string& record_name, const std::string& host_name, int port);
+        void process_TXT(const std::string& record_name, const std::string& key, const std::string& value);
+        void process_A(const std::string& host_name, const std::string& ip_addr);
+        void process_AAAA(const std::string& host_name, const std::string& ip_addr);
+        void get_configs_to(DiscoConfigManager* manager);
 };
 
 #endif

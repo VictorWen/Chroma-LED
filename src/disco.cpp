@@ -111,25 +111,35 @@ void HTTPConfigManager::wait_for_any_config() {
     }
 }
 
-int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
+UDPDisco::UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std::move(manager)) {
 #ifdef _WIN32
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (res != NO_ERROR) {
         fprintf(stderr, "WSAStartup failed with error %d\n", res);
-        return 1;
+        exit(1);
     }
 #endif
 
     // Create socket
-    // TODO: keep socket around, don't destroy after every write
-    int client_socket = -1;
-    client_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (client_socket == -1) {
+    this->disco_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (this->disco_socket == -1) {
         print_error("socket failed with error");
-        return 1;
+        exit(1);
     }
+}
 
+UDPDisco::~UDPDisco() {
+#ifdef _WIN32
+    closesocket(this->disco_socket);
+    WSACleanup();
+#else
+    close(this->disco_socket);
+#endif
+}
+
+int UDPDisco::write(const std::string &id, const std::vector<vec4> &pixels)
+{
     // Get config
     DiscoConfig config = this->manager->get_config(id);
 
@@ -142,33 +152,27 @@ int UDPDisco::write(const std::string& id, const std::vector<vec4>& pixels) {
     // Write packet to socket
     char send_buffer[4096]; // TODO: BUFFER OVERFLOW!!!!
     int packet_len = write_packet(pixels, send_buffer);
-    int send_result = sendto(client_socket, send_buffer, packet_len, 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
+    int send_result = sendto(this->disco_socket, send_buffer, packet_len, 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
     if (send_result < 0) {
         print_error("Sending got an error");
         return 1;
     }
 
-    // Get response
-    int bytes_received;
-    char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
-    int server_buf_len = 1024;
+    // // Get response
+    // int bytes_received;
+    // char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
+    // int server_buf_len = 1024;
 
-    struct sockaddr_in sender_addr;
-    int sender_addr_size = sizeof (sender_addr);
+    // struct sockaddr_in sender_addr;
+    // int sender_addr_size = sizeof (sender_addr);
 
-    bytes_received = recvfrom(client_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
-    if (bytes_received < 0) {
-        print_error("recvfrom failed with error");
-        return 1;
-    }
-    server_buf[bytes_received] = '\0';
+    // bytes_received = recvfrom(this->disco_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
+    // if (bytes_received < 0) {
+    //     print_error("recvfrom failed with error");
+    //     return 1;
+    // }
+    // server_buf[bytes_received] = '\0';
 
-#ifdef _WIN32
-    closesocket(client_socket);
-    WSACleanup();
-#else
-    close(client_socket);
-#endif
     return 0;
 }
 
@@ -177,48 +181,70 @@ int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
         uint16_t rclass, uint32_t ttl, const void* data, size_t size,
         size_t name_offset, size_t name_length, size_t record_offset,
         size_t record_length, void* user_data) {
-    fprintf(stderr, "GOT mDNS response, rtype: %d\n", rtype);
     const size_t buff_size = 256;
-    char name_buffer[buff_size];
-    
-    if (entry != MDNS_ENTRYTYPE_ADDITIONAL)
-        return 0;
-    
-    mdns_string_t entry_str = mdns_string_extract(data, size, &name_offset, name_buffer, buff_size);
-    std::string entry_name(entry_str.str, entry_str.length - 1); // subtract 1 to remove period
+    char buffer[buff_size];
 
-    auto manager = static_cast<DiscoConfigManager*>(user_data);
+    fprintf(stderr, "GOT MDNS RESPONSE\n");
+    
+    mdns_string_t entry_str = mdns_string_extract(data, size, &name_offset, buffer, buff_size);
+    std::string entry_name(entry_str.str, entry_str.length);
+    if (entry_name.back() == '.')
+        entry_name.pop_back();
+
+    auto manager = static_cast<mDNSRecordManager*>(user_data);
 
     if (rtype == MDNS_RECORDTYPE_PTR) {
         mdns_string_t name_str = mdns_record_parse_ptr(data, size, record_offset, record_length,
-            name_buffer, buff_size);
+            buffer, buff_size);
         std::string name(name_str.str, name_str.length);
-        fprintf(stderr, "GOT PTR record: %s\n", name.c_str());
+        if (name.back() == '.')
+            name.pop_back();
+        manager->process_PTR(entry_name, name);
     }
     else if (rtype == MDNS_RECORDTYPE_SRV) {
         mdns_record_srv_t srv = mdns_record_parse_srv(data, size, record_offset, record_length,
-            name_buffer, buff_size);
+            buffer, buff_size);
         std::string name(srv.name.str, srv.name.length);
-        fprintf(stderr, "GOT SRV record: %s, port: %d\n", name.c_str(), srv.port);
+        if (name.back() == '.')
+            name.pop_back();
+        manager->process_SRV(entry_name, name, srv.port);
+    }
+    else if (rtype == MDNS_RECORDTYPE_TXT) {
+        const size_t txt_buffer_size = 128;
+        mdns_record_txt_t txt_buffer[txt_buffer_size];
+        size_t parsed = mdns_record_parse_txt(data, size, record_offset, record_length, txt_buffer,
+		                                      txt_buffer_size);
+		for (size_t i = 0; i < parsed; i++) {
+            mdns_record_txt_t text_record = txt_buffer[i];
+			if (text_record.value.length > 0) {
+                std::string key(text_record.key.str, text_record.key.length);
+                std::string value(text_record.value.str, text_record.value.length);
+                manager->process_TXT(entry_name, key, value);
+			} else {
+				std::string key(text_record.key.str, text_record.key.length);
+                manager->process_TXT(entry_name, key, "NULL");
+			}
+		}
     }
     else if (rtype == MDNS_RECORDTYPE_A) {
         struct sockaddr_in addr;
 		mdns_record_parse_a(data, size, record_offset, record_length, &addr);
-        inet_ntop(AF_INET, &(addr.sin_addr), name_buffer, buff_size);
-        std::string name(name_buffer);
-        fprintf(stderr, "GOT A record: %s %s\n", entry_name.c_str(), name.c_str());
-        manager->set_config(entry_name, {
-            entry_name,
-            "esp8266",
-            1,
-            name
-        });
+        inet_ntop(AF_INET, &(addr.sin_addr), buffer, buff_size);
+        std::string ip_addr(buffer);
+        manager->process_A(entry_name, ip_addr);
+    }
+    else if (rtype == MDNS_RECORDTYPE_AAAA) {
+        struct sockaddr_in6 addr;
+		mdns_record_parse_aaaa(data, size, record_offset, record_length, &addr);
+        inet_ntop(AF_INET6, &(addr.sin6_addr), buffer, buff_size);
+        std::string ip_addr(buffer);
+        manager->process_A(entry_name, ip_addr);
     }
 
     return 0;
 }
 
-int DiscoDiscoverer::send_mDNS_query() {
+int DiscoDiscoverer::mDNS_auto_discover() {
 #ifdef _WIN32
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -235,21 +261,27 @@ int DiscoDiscoverer::send_mDNS_query() {
         return 1;
     }
 
+    fprintf(stderr, "Starting mDNS auto discovery\n");
+
     const size_t buff_size = 2048;
-    void* buffer[buff_size];
-    if (mdns_query_send(sock, MDNS_RECORDTYPE_PTR, "_discoConnect._tcp.local", 24, buffer, buff_size, 0) < 0) {
+    void* buffer[buff_size]; // hope that mdns library deals with buffer overflows...
+    std::string query = "_disco._udp.local";
+    if (mdns_query_send(sock, MDNS_RECORDTYPE_PTR, query.c_str(), query.size(), buffer, buff_size, 0) < 0) {
         print_error("mdns query failed");
         return 1;
     }
 
     // Collect responses
-    const double timeout = 2;
+    mDNSRecordManager builder;
+    const double timeout = 3;
     auto timer = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
-        int results = mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, this->manager, 0);
+        int results = mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
         if (results > 0)
             timer = std::chrono::high_resolution_clock::now();
     }
+    builder.get_configs_to(this->manager);
+    fprintf(stderr, "Finished mDNS auto discovery\n");
 
 #ifdef _WIN32
     closesocket(sock);
@@ -261,7 +293,7 @@ int DiscoDiscoverer::send_mDNS_query() {
 }
 
 //! NOTE: requires router to support broadcast packets
-int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
+int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multicast
 #ifdef _WIN32
     WSADATA wsaData;
     int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -370,4 +402,44 @@ int DiscoDiscoverer::send_broadcast() { // TODO: add support for multicast
     close(client_socket);
 #endif
     return 0;
+}
+
+void mDNSRecordManager::process_PTR(const std::string &query_name, const std::string &record_name) {
+    if (this->records.count(record_name) == 0)
+        this->records[record_name] = std::make_unique<mDNSRecord>();;
+    this->records[record_name]->query_name = query_name;
+}
+
+void mDNSRecordManager::process_SRV(const std::string &record_name, const std::string &host_name, int port) {
+    if (this->records.count(record_name) == 0)
+        this->records[record_name] = std::make_unique<mDNSRecord>();;
+    this->records[record_name]->host_name = host_name;
+    this->records[record_name]->port = port;
+}
+
+void mDNSRecordManager::process_TXT(const std::string &record_name, const std::string &key, const std::string &value) {
+    if (this->records.count(record_name) == 0)
+        this->records[record_name] = std::make_unique<mDNSRecord>();;
+    this->records[record_name]->text[key] = value;
+}
+
+void mDNSRecordManager::process_A(const std::string &host_name, const std::string &ip_addr) {
+    this->ip4_table[host_name] = ip_addr;
+}
+
+void mDNSRecordManager::process_AAAA(const std::string &host_name, const std::string &ip_addr) {
+    this->ip6_table[host_name] = ip_addr;
+}
+
+void mDNSRecordManager::get_configs_to(DiscoConfigManager *manager) {
+    for (auto& record_pair : this->records) {
+        auto& record = record_pair.second;
+        fprintf(stderr, "Adding record %s\n", record->host_name.c_str());
+        manager->set_config(record->host_name, {
+            record->host_name,
+            record->text.count("device") > 0 ? record->text["device"] : "unknown",
+            record->text.count("version") > 0 ? stoi(record->text["version"]) : 1,
+            this->ip4_table[record->host_name]
+        }); // TODO: provide more info to config
+    }
 }
