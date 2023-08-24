@@ -19,7 +19,7 @@ struct DiscoPacket {
     uint32_t start;
     uint32_t end;
     uint32_t n_frames;
-    vec4 data[4000];
+    char data[4000];
 };
 
 struct DiscoConfig {

@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
+#include <iphlpapi.h>
 #else
 #include <unistd.h>
 #include <sys/socket.h>
@@ -20,8 +21,6 @@
 using json = nlohmann::json;
 
 #include "disco.h"
-
-const char* LOCAL_HOST = "127.0.0.1";
 
 void to_json(json& j, const DiscoConfig& config) {
     j = json{
@@ -46,23 +45,29 @@ int write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
     packet.start = 0; // TODO: start, end, n_frames should be calculated dynamically from pixel length
     packet.end = 150;
     packet.n_frames = 1;
-    std::copy(pixels.begin(), pixels.end(), packet.data);
-    int packet_len = (packet.end - packet.start) * packet.n_frames * 16 + 12;
+    // std::copy(pixels.begin(), pixels.end(), packet.data);
+    int packet_len = (packet.end - packet.start) * packet.n_frames * 4 + 12;
+    for (size_t i = 0; i < pixels.size(); i++) {
+        const vec4 pixel = pixels[i];
+        packet.data[i * 4 + 0] = pixel.x * 255;
+        packet.data[i * 4 + 1] = pixel.y * 255;
+        packet.data[i * 4 + 2] = pixel.z * 255;
+        packet.data[i * 4 + 3] = pixel.w * 255;
+    }
 
     memcpy(buffer, &packet, packet_len);
 
     return packet_len;
 }
 
+void print_error(const char* error_msg) {
 #ifdef _WIN32
-void print_error(const char* error_msg) {
     fprintf(stderr, "%s %d\n", error_msg, WSAGetLastError());
-}
 #else
-void print_error(const char* error_msg) {
     perror(error_msg);
-}
 #endif
+}
+
 
 std::shared_ptr<httpserver::http_response> ConfigPostResource::render_POST(const httpserver::http_request& req) {
     if (req.content_too_large())
@@ -112,15 +117,6 @@ void HTTPConfigManager::wait_for_any_config() {
 }
 
 UDPDisco::UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std::move(manager)) {
-#ifdef _WIN32
-    WSADATA wsaData;
-    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (res != NO_ERROR) {
-        fprintf(stderr, "WSAStartup failed with error %d\n", res);
-        exit(1);
-    }
-#endif
-
     // Create socket
     this->disco_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (this->disco_socket == -1) {
@@ -132,7 +128,6 @@ UDPDisco::UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std:
 UDPDisco::~UDPDisco() {
 #ifdef _WIN32
     closesocket(this->disco_socket);
-    WSACleanup();
 #else
     close(this->disco_socket);
 #endif
@@ -245,17 +240,15 @@ int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
 }
 
 int DiscoDiscoverer::mDNS_auto_discover() {
-#ifdef _WIN32
-    WSADATA wsaData;
-    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (res != NO_ERROR) {
-        fprintf(stderr, "WSAStartup failed with error %d\n", res);
-        return 1;
-    }
-#endif
+
     // Create socket
     int sock = -1;
-    sock = mdns_socket_open_ipv4(NULL);
+    sockaddr_in saddr;
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr.s_addr = inet_addr("192.168.0.175"); //! TEMP FIX
+    saddr.sin_port = htons(MDNS_PORT);
+    sock = mdns_socket_open_ipv4(&saddr); // TODO: open a socket for every interface
+    // sock = mdns_socket_open_ipv4(0);
     if (sock < 0) {
         print_error("socket failed with error");
         return 1;
@@ -273,35 +266,21 @@ int DiscoDiscoverer::mDNS_auto_discover() {
 
     // Collect responses
     mDNSRecordManager builder;
-    const double timeout = 3;
+    const double timeout = 5;
     auto timer = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
         int results = mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
-        if (results > 0)
-            timer = std::chrono::high_resolution_clock::now();
     }
     builder.get_configs_to(this->manager);
     fprintf(stderr, "Finished mDNS auto discovery\n");
+    fprintf(stderr, "GOT config: %s\n", json(this->manager->get_config("chroma.local")).dump(2).c_str());
 
-#ifdef _WIN32
-    closesocket(sock);
-    WSACleanup();
-#else
-    close(sock);
-#endif
+    mdns_socket_close(sock);
     return 0;
 }
 
 //! NOTE: requires router to support broadcast packets
 int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multicast
-#ifdef _WIN32
-    WSADATA wsaData;
-    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (res != NO_ERROR) {
-        fprintf(stderr, "WSAStartup failed with error %d\n", res);
-        return 1;
-    }
-#endif
 
     // TODO: deal with timeouts
 
@@ -397,7 +376,6 @@ int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multic
 
 #ifdef _WIN32
     closesocket(client_socket);
-    WSACleanup();
 #else
     close(client_socket);
 #endif
@@ -434,12 +412,14 @@ void mDNSRecordManager::process_AAAA(const std::string &host_name, const std::st
 void mDNSRecordManager::get_configs_to(DiscoConfigManager *manager) {
     for (auto& record_pair : this->records) {
         auto& record = record_pair.second;
-        fprintf(stderr, "Adding record %s\n", record->host_name.c_str());
-        manager->set_config(record->host_name, {
-            record->host_name,
-            record->text.count("device") > 0 ? record->text["device"] : "unknown",
-            record->text.count("version") > 0 ? stoi(record->text["version"]) : 1,
-            this->ip4_table[record->host_name]
-        }); // TODO: provide more info to config
+        if (record->host_name != "" && record->text.count("version") > 0) {
+            fprintf(stderr, "Adding record %s\n", record->host_name.c_str());
+            manager->set_config(record->host_name, {
+                record->host_name,
+                record->text.count("device") > 0 ? record->text["device"] : "unknown",
+                stoi(record->text["version"]),
+                this->ip4_table[record->host_name]
+            }); // TODO: provide more info to config
+        }
     }
 }

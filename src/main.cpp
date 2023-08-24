@@ -10,6 +10,8 @@
 #ifdef _WIN32
 #include <io.h>
 #include <fcntl.h>
+#include <WinSock2.h>
+#include <Ws2tcpip.h>
 #endif
 
 #include "chroma.h"
@@ -137,6 +139,14 @@ void callback(const std::vector<vec4>& pixels) {
 }
 
 int main() {
+#ifdef _WIN32
+    WSADATA wsaData;
+    int res = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (res != NO_ERROR) {
+        fprintf(stderr, "WSAStartup failed with error %d\n", res);
+        return 1;
+    }
+#endif
     ChromaController controller;
     ChromaEnvironment cenv;
     cenv.controller = &controller;
@@ -185,6 +195,10 @@ int main() {
     
     cli.read_scriptfile();
     cli.run_stdin(disco);
+
+#ifdef _WIN32
+    WSACleanup();
+#endif
 
     return 0;
 }
