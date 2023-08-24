@@ -1,12 +1,12 @@
-#ifndef PARTICLES_H
-#define PARTICLES_H
+#ifndef CHROMA_PARTICLES_H
+#define CHROMA_PARTICLES_H
 
 #include <memory>
 #include <unordered_set>
 #include <vector>
 
-#include "chroma.h"
-#include "chromatic.h"
+#include "chroma.hpp"
+#include "chromatic.hpp"
 
 
 class CollisionEvent;

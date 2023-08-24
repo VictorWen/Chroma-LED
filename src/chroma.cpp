@@ -1,6 +1,6 @@
 #include <boost/asio.hpp>
 
-#include "chroma.h"
+#include "chroma.hpp"
 
 double get_now() {
     return std::chrono::duration_cast<std::chrono::microseconds>(

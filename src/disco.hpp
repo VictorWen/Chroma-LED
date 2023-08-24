@@ -8,7 +8,10 @@
 
 #include <mdns.h>
 
-#include "chroma.h" // TODO: should this dependency be reversed??
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
+
+#include "chroma.hpp" // TODO: should this dependency be reversed??
 
 #define PORT 12345
 #define DISCOVER_PORT 12346
@@ -29,6 +32,9 @@ struct DiscoConfig {
     std::string address;
 };
 
+void to_json(json& j, const DiscoConfig& config);
+void from_json(const json& j, DiscoConfig& config);
+
 class DiscoMaster {
     public:
         virtual ~DiscoMaster() { }
@@ -40,6 +46,15 @@ class DiscoConfigManager {
         virtual DiscoConfig get_config(std::string id) = 0;
         virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
         virtual bool has_config(std::string id);
+};
+
+class DictionaryConfigManager : public DiscoConfigManager {
+    private:
+        std::unordered_map<std::string, DiscoConfig> dictionary;
+    public:
+        DiscoConfig get_config(std::string id) { return this->dictionary[id]; }
+        DiscoConfig set_config(std::string id, DiscoConfig config) { this->dictionary[id] = config; return this->dictionary[id]; }
+        bool has_config(std::string id) { return this->dictionary.count(id) > 0; }
 };
 
 class HTTPConfigManager;
@@ -64,7 +79,7 @@ class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via 
         bool has_config(std::string id) { return this->configs.count(id) > 0; }
         void start();
         void wait_for_any_config();
-};
+}; // TODO: maybe delete/move
 
 class UDPDisco : public DiscoMaster {
     private:

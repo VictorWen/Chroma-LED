@@ -3,10 +3,11 @@
 
 #include <deque>
 #include <unordered_map>
+#include <ostream>
 
-#include "chroma.h"
-#include "chroma_script.h"
-#include "commands.h"
+#include "chroma.hpp"
+#include "chroma_script.hpp"
+#include "commands.hpp"
 
 #define PARSE_GOOD 0
 #define PARSE_BAD 1
@@ -21,7 +22,8 @@ class ChromaCLI {
         void handle_stdin_input();
     public:
         ChromaCLI(ChromaEnvironment& cenv) : cenv(cenv) { }
-        int process_input(const std::string& input);
+        int process_text(const std::string& input, std::ostream& output);
+        int process_input(const std::string& input, std::ostream& output);
         template<typename T> void register_command(const T& cmd);
         void run_stdin(DiscoMaster& disco);
         void read_scriptfile(const std::string& filename = "scripts/startup.chroma");

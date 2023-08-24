@@ -11,8 +11,8 @@
 #include <boost/variant/variant.hpp>
 #include <boost/variant/get.hpp>
 
-#include "chromatic.h"
-#include "disco.h"
+#include "chromatic.hpp"
+#include "disco.hpp"
 
 class ChromaRuntimeException;
 class ChromaObject;

@@ -1,4 +1,4 @@
-#include "chroma_cli.h"
+#include "chroma_cli.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -9,14 +9,15 @@
 #include <iostream>
 #include <memory>
 #include <fstream>
+#include <ostream>
 
-#include "evaluator.h"
+#include "evaluator.hpp"
 
 void ChromaCLI::handle_stdin_input() {
     int result = -1;
     fprintf(stderr, "Input Command: ");
     for (std::string line; this->cenv.controller->is_running() && std::getline(std::cin, line);) {
-        result = this->process_input(line);
+        result = this->process_input(line, std::cerr);
         if (result == PARSE_GOOD && this->cenv.ret_val.get_type() == OBJECT_TYPE) {
             try { // TODO: need a better way to check effect type       
                 this->cenv.controller->set_effect(this->cenv.ret_val.get_effect());
@@ -29,7 +30,40 @@ void ChromaCLI::handle_stdin_input() {
     }
 }
 
-int ChromaCLI::process_input(const std::string& input) {
+int ChromaCLI::process_text(const std::string& input, std::ostream& output) {
+    if (!this->cenv.controller->is_running())
+        return -1;
+
+    int result = -1;
+    size_t left_index = 0;
+    size_t right_index = input.find('\n', left_index);
+    if (right_index >= input.size()) // ~0 == -1
+        right_index = input.size();
+
+    while (left_index < right_index) {
+        std::string line = input.substr(left_index, right_index - left_index);
+
+        result = this->process_input(line, output);
+        if (result == PARSE_GOOD && this->cenv.ret_val.get_type() == OBJECT_TYPE) {
+            try { // TODO: need a better way to check effect type       
+                this->cenv.controller->set_effect(this->cenv.ret_val.get_effect());
+            } catch (ChromaRuntimeException& e) {
+                output << "Error: " << e.what() << "from " << line << "\n";
+                return -1;
+            }
+        }
+        else if (result == PARSE_BAD)
+            return -1;
+
+        left_index = right_index + 1;
+        right_index = input.find('\n', left_index);
+        if (right_index >= input.size())
+            right_index = input.size();
+    }
+    return result;
+}
+
+int ChromaCLI::process_input(const std::string& input, std::ostream& output) {
     this->tokenizer.tokenize(input, this->tokens, this->brackets);
 
     if (!this->brackets.empty())
@@ -46,7 +80,7 @@ int ChromaCLI::process_input(const std::string& input) {
         }
     } catch (ParseException& e) {
         cenv.ret_val = ChromaData();
-        fprintf(stderr, "Error: %s\n", e.what());
+        output << "Error: " << e.what() << "\n";
         return PARSE_BAD;
     }
 
@@ -57,7 +91,7 @@ int ChromaCLI::process_input(const std::string& input) {
         return PARSE_GOOD;
     } catch (ChromaRuntimeException& e) {
         cenv.ret_val = ChromaData();
-        fprintf(stderr, "Error: %s\n", e.what());
+        output << "Error: " << e.what() << "\n";
         return PARSE_BAD;
     }
 }
@@ -100,7 +134,7 @@ void ChromaCLI::read_scriptfile(const std::string& filename) {
     int result = -1;
     std::ifstream startup_file (filename);
     for (std::string line; std::getline(startup_file, line);) {
-        result = this->process_input(line);
+        result = this->process_input(line, std::cerr);
         if (result == PARSE_GOOD && this->cenv.ret_val.get_type() == OBJECT_TYPE) {
             try { // TODO: need a better way to check effect type       
                 this->cenv.controller->set_effect(this->cenv.ret_val.get_effect());

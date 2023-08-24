@@ -1,7 +1,7 @@
-#ifndef EFFECTS_H
-#define EFFECTS_H
+#ifndef CHROMA_EFFECTS_H
+#define CHROMA_EFFECTS_H
 
-#include "chroma.h"
+#include "chroma.hpp"
 
 
 class ColorEffect : public ChromaEffect {

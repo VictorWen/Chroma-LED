@@ -1,7 +1,7 @@
 #include <iostream>
 #include <regex>
 
-#include "chroma_script.h"
+#include "chroma_script.hpp"
 
 /*
 ChromaScript grammar

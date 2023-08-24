@@ -1,4 +1,4 @@
-#include "commands.h"
+#include "commands.hpp"
 
 bool TypeArgument::consume(const ChromaData &arg)
 {

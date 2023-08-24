@@ -1,6 +1,8 @@
 #ifndef CHROMATIC_H
 #define CHROMATIC_H
 
+//? should this be merge with another file or renamed?
+
 #include <string>
 
 struct vec3 {

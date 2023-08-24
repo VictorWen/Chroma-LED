@@ -1,8 +1,8 @@
-#ifndef EVALUATOR_H
-#define EVALUATOR_H
+#ifndef CHROMA_EVALUATOR_H
+#define CHROMA_EVALUATOR_H
 
-#include "chroma.h"
-#include "chroma_script.h"
+#include "chroma.hpp"
+#include "chroma_script.hpp"
 
 
 class ScriptFunction : public ChromaFunction {

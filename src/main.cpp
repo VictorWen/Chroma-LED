@@ -14,15 +14,16 @@
 #include <Ws2tcpip.h>
 #endif
 
-#include "chroma.h"
-#include "chromatic.h"
-#include "chroma_script.h"
-#include "chroma_cli.h"
-#include "commands.h"
-#include "evaluator.h"
-#include "effects.h"
-#include "particles.h"
-#include "disco.h"
+#include "chroma.hpp"
+#include "chromatic.hpp"
+#include "chroma_script.hpp"
+#include "chroma_cli.hpp"
+#include "commands.hpp"
+#include "evaluator.hpp"
+#include "effects.hpp"
+#include "particles.hpp"
+#include "disco.hpp"
+#include "web_server.hpp"
 
 // TODO: potential optimization, use string_view for read-only strings
 const auto RGB_CMD = CommandBuilder<ColorEffect>("rgb")
@@ -181,12 +182,14 @@ int main() {
     fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
 
     auto httpServer = std::make_unique<HTTPConfigManager>();
+    ChromaWebServer web_server(controller, cli, *httpServer, 80);
     
     DiscoDiscoverer discoverer(httpServer.get());
     if (discoverer.mDNS_auto_discover() != 0)
         return 1;
     
-    httpServer->start();
+    // httpServer->start();
+    web_server.start();
 
     fprintf(stderr, "Waiting for Disco config...\n");
     httpServer->wait_for_any_config();

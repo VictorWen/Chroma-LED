@@ -1,11 +1,11 @@
-#ifndef COMMANDS_H
-#define COMMANDS_H
+#ifndef CHROMA_COMMANDS_H
+#define CHROMA_COMMANDS_H
 
 #include <string>
 #include <vector>
 #include <memory>
 
-#include "chroma.h"
+#include "chroma.hpp"
 
 
 class CommandArgument {

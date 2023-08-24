@@ -20,7 +20,7 @@
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
 
-#include "disco.h"
+#include "disco.hpp"
 
 void to_json(json& j, const DiscoConfig& config) {
     j = json{
@@ -269,7 +269,7 @@ int DiscoDiscoverer::mDNS_auto_discover() {
     const double timeout = 5;
     auto timer = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
-        int results = mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
+        mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
     }
     builder.get_configs_to(this->manager);
     fprintf(stderr, "Finished mDNS auto discovery\n");

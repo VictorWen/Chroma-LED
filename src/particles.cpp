@@ -1,7 +1,7 @@
 #include <math.h>
 #include <algorithm>
 
-#include "particles.h"
+#include "particles.hpp"
 
 
 

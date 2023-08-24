@@ -1,4 +1,5 @@
-#include "chromatic.h"
+#include "chromatic.hpp"
+
 #include <math.h>
 #include <algorithm>
 

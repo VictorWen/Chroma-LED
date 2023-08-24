@@ -4,7 +4,7 @@
 
 #include <math.h>
 
-#include "effects.h"
+#include "effects.hpp"
 
 
 ColorEffect::ColorEffect(const std::vector<ChromaData>& args) {
