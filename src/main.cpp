@@ -182,22 +182,24 @@ int main() {
     fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
 
     auto httpServer = std::make_unique<HTTPConfigManager>();
+    auto& httpServer_ref = *httpServer;
     ChromaWebServer web_server(controller, cli, *httpServer, 80);
+    UDPDisco disco(std::move(httpServer));
     
-    DiscoDiscoverer discoverer(httpServer.get());
+    DiscoDiscoverer discoverer(disco, httpServer_ref);
     if (discoverer.mDNS_auto_discover() != 0)
         return 1;
     
     // httpServer->start();
-    web_server.start();
+    // web_server.start();
 
-    fprintf(stderr, "Waiting for Disco config...\n");
-    httpServer->wait_for_any_config();
+    // fprintf(stderr, "Waiting for Disco config...\n");
+    // httpServer->wait_for_any_config();
 
-    UDPDisco disco(std::move(httpServer));
     
-    cli.read_scriptfile();
-    cli.run_stdin(disco);
+    
+    // cli.read_scriptfile();
+    // cli.run_stdin(disco);
 
 #ifdef _WIN32
     WSACleanup();

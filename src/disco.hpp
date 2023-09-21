@@ -3,6 +3,7 @@
 
 #include <cinttypes>
 #include <memory>
+#include <thread>
 
 #include <httpserver.hpp>
 
@@ -13,6 +14,7 @@ using json = nlohmann::json;
 
 #include "chroma.hpp" // TODO: should this dependency be reversed??
 
+#define PACKET_MAX 4096
 #define PORT 12345
 #define DISCOVER_PORT 12346
 #define DISCOVER_FOUND "DISCO FOUND\n"
@@ -35,17 +37,59 @@ struct DiscoConfig {
 void to_json(json& j, const DiscoConfig& config);
 void from_json(const json& j, DiscoConfig& config);
 
+enum DiscoConnectionStatus {
+    AVAILABLE,
+    CONNECTED,
+    DISCONNECTED,
+    NOT_FOUND
+};
+
+struct DiscoHeartbeat {
+    uint64_t timestamp;
+    std::string data;
+
+    DiscoHeartbeat(unsigned long long timestamp=0, std::string data="") :
+        timestamp(timestamp), data(data) { }
+    static int response_from_buffer(char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat);
+    size_t write_to_buffer(char buffer[PACKET_MAX]) const;
+};
+
+class DiscoConnection {
+    private:
+        std::string name;
+        DiscoConnectionStatus status = NOT_FOUND;
+        std::deque<DiscoHeartbeat> sent_heartbeats;
+        size_t max_heartbeats = 10;
+    public:
+        DiscoConnection(const std::string& device_name) : name(device_name) { };
+        DiscoConnection(const DiscoConnection& other);
+        // ~DiscoConnection();
+        const DiscoHeartbeat get_heartbeat();
+        void recv_heartbeat(const DiscoHeartbeat& heartbeat);
+        // void disconnect();
+        // void connect();
+        DiscoConnectionStatus get_status() { return this->status; };
+        // int write(const std::vector<vec4>& pixels);
+};
+
 class DiscoMaster {
     public:
         virtual ~DiscoMaster() { }
+        virtual void start_heartbeats() = 0;
+        virtual void stop_heartbeats() = 0;
+        virtual void add_connection(const std::string& device_name, DiscoConnection connection) = 0;
+        virtual const DiscoConnection& get_connection(const std::string& device_name) const = 0;
+        virtual void purge_connections() = 0;
+        virtual std::vector<std::string> get_connection_names() const = 0;
         virtual int write(const std::string& id, const std::vector<vec4>& pixels) = 0;
 };
+
 
 class DiscoConfigManager {
     public:
         virtual DiscoConfig get_config(std::string id) = 0;
         virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
-        virtual bool has_config(std::string id);
+        virtual bool has_config(std::string id) = 0;
 };
 
 class DictionaryConfigManager : public DiscoConfigManager {
@@ -67,6 +111,10 @@ class ConfigPostResource : public httpserver::http_resource {
         std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request& req);
 };
 
+//? Disco should deal with low level delivery of data
+//? HTTP Config management is more high level
+//? Especially if it can send commands to Chroma controller
+//? Thus, should move the manager to a different file, outside of Disco
 class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via HTTP, may require refactor
     private:
         std::unordered_map<std::string, DiscoConfig> configs;
@@ -84,23 +132,31 @@ class HTTPConfigManager : public DiscoConfigManager { //TODO: send commands via 
 class UDPDisco : public DiscoMaster {
     private:
         std::unique_ptr<DiscoConfigManager> manager;
+        std::unordered_map<std::string, DiscoConnection> connections;
+        std::thread heart_thread;
+        std::vector<int> sockets;
         int disco_socket;
+        bool heart_beating = false;
+
+        void run_heartbeat();
     public:
-        UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager);
+        UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager, size_t num_sockets=4);
         ~UDPDisco();
+        void start_heartbeats();
+        void stop_heartbeats();
+        void add_connection(const std::string& device_name, DiscoConnection connection);
+        const DiscoConnection& get_connection(const std::string& device_name) const;
+        void purge_connections();
+        std::vector<std::string> get_connection_names() const;
         int write(const std::string& id, const std::vector<vec4>& pixels);
 };
 
 class DiscoDiscoverer {
     private:
-        DiscoConfigManager* manager;
-        // int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
-        //                                mdns_entry_type_t entry, uint16_t query_id, uint16_t rtype,
-        //                                uint16_t rclass, uint32_t ttl, const void* data, size_t size,
-        //                                size_t name_offset, size_t name_length, size_t record_offset,
-        //                                size_t record_length, void* user_data);
+        DiscoMaster& master;
+        DiscoConfigManager& manager;
     public:
-        DiscoDiscoverer(DiscoConfigManager* manager) : manager(manager) { }
+        DiscoDiscoverer(DiscoMaster& master, DiscoConfigManager& manager) : master(master), manager(manager) { }
         int mDNS_auto_discover();
         int broadcast_auto_discover();
 };
@@ -125,7 +181,7 @@ class mDNSRecordManager {
         void process_TXT(const std::string& record_name, const std::string& key, const std::string& value);
         void process_A(const std::string& host_name, const std::string& ip_addr);
         void process_AAAA(const std::string& host_name, const std::string& ip_addr);
-        void get_configs_to(DiscoConfigManager* manager);
+        std::vector<std::string> get_configs_to(DiscoConfigManager& manager);
 };
 
 #endif

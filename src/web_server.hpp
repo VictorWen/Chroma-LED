@@ -40,7 +40,7 @@ class ChromaWebServer {
             public:
                 PostDiscoConfig(DiscoConfigManager& manager) : ChromaHTTPResource("/disco/config"), manager(manager) { }
                 std::shared_ptr<httpserver::http_response> render_POST(const httpserver::http_request& req);
-        };
+        }; 
 
         class PostChromaScript : public ChromaHTTPResource {
             private:

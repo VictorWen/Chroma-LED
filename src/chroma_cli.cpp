@@ -37,7 +37,7 @@ int ChromaCLI::process_text(const std::string& input, std::ostream& output) {
     int result = -1;
     size_t left_index = 0;
     size_t right_index = input.find('\n', left_index);
-    if (right_index >= input.size()) // ~0 == -1
+    if (right_index >= input.size())
         right_index = input.size();
 
     while (left_index < right_index) {

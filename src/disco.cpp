@@ -10,6 +10,7 @@
 #include <WinSock2.h>
 #include <Ws2tcpip.h>
 #include <iphlpapi.h>
+#include <windows.h>
 #else
 #include <unistd.h>
 #include <sys/socket.h>
@@ -21,6 +22,12 @@
 using json = nlohmann::json;
 
 #include "disco.hpp"
+
+struct Packet {
+    sockaddr_in addr;
+    size_t length;
+    char data[PACKET_MAX];
+};
 
 void to_json(json& j, const DiscoConfig& config) {
     j = json{
@@ -39,14 +46,20 @@ void from_json(const json& j, DiscoConfig& config) {
         j.at("address").get_to(config.address);
 }
 
-int write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
+size_t write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
     // Fill packet information
     DiscoPacket packet;
     packet.start = 0; // TODO: start, end, n_frames should be calculated dynamically from pixel length
     packet.end = 150;
     packet.n_frames = 1;
     // std::copy(pixels.begin(), pixels.end(), packet.data);
-    int packet_len = (packet.end - packet.start) * packet.n_frames * 4 + 12;
+    size_t packet_len = (packet.end - packet.start) * packet.n_frames * 4 + 16;
+
+    if (packet_len > PACKET_MAX) {
+        fprintf(stderr, "Packet data to large %lld, buffer overflow\n", packet_len);
+        return -1;
+    }
+
     for (size_t i = 0; i < pixels.size(); i++) {
         const vec4 pixel = pixels[i];
         packet.data[i * 4 + 0] = pixel.x * 255;
@@ -55,9 +68,21 @@ int write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
         packet.data[i * 4 + 3] = pixel.w * 255;
     }
 
-    memcpy(buffer, &packet, packet_len);
+    memcpy(buffer, "LEDA", 4); // Set packet type
+    memcpy(buffer + 4, &packet, packet_len - 4);
 
     return packet_len;
+}
+
+sockaddr_in get_addr(const std::unique_ptr<DiscoConfigManager>& manager, std::string device_name) {
+    DiscoConfig config = manager->get_config(device_name);
+    
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(PORT);
+    addr.sin_addr.s_addr = inet_addr(config.address.c_str());
+
+    return addr;
 }
 
 void print_error(const char* error_msg) {
@@ -68,6 +93,139 @@ void print_error(const char* error_msg) {
 #endif
 }
 
+int fill_fd_set(const std::vector<int> sockets, fd_set* set) {
+    int max_sock = -1;
+    FD_ZERO(set);
+    for (int sock : sockets) {
+        if (sock > max_sock)
+            max_sock = sock;
+        FD_SET(sock, set);
+    }
+    return max_sock + 1;
+}
+
+int multi_send(const std::vector<int>& sockets, const std::vector<Packet>& packets) {
+    int num_socks;
+    fd_set sock_set;
+    auto it = packets.begin();
+    while (it != packets.end()) {
+        int nfds = fill_fd_set(sockets, &sock_set);
+        num_socks = select(nfds, NULL, &sock_set, NULL, NULL);
+        if (num_socks < 0) {
+            print_error("select got an error");
+            return -1;
+        }
+
+        if (num_socks > 0) {
+            for (size_t i = 0; i < sockets.size() && it != packets.end(); i++) {
+                int sock = sockets[i];
+                if (!FD_ISSET(sock, &sock_set))
+                    continue;
+                
+                int send_result = sendto(sock, it->data, it->length, 0, (sockaddr*) &it->addr, (int) sizeof(it->addr));
+                if (send_result < 0) {
+                    print_error("Heartbeat: Sending got an error");
+                    continue;
+                }
+
+                it++;
+            }
+        }
+    }
+    return 0;
+}
+
+//! TEMP FUNCTION
+std::string get_heartbeat_value(const DiscoHeartbeat& heartbeat, const std::string& key) {
+    std::stringstream ss(heartbeat.data);
+    std::string to;
+
+    if (heartbeat.data.size() > 0) {
+        while(std::getline(ss,to,'\n')){
+            if (to.rfind(key, 0) == 0)
+                return to.substr(key.size() + 1);
+        }
+    }
+    return "";
+}
+
+int DiscoHeartbeat::response_from_buffer(char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat) {
+    if (packet_len < 16)
+        return -1;
+    std::string_view packet_type(buffer, 4);
+    if (packet_type != "HRBB")
+        return -2;
+
+    unsigned long long timestamp;
+    unsigned int length;
+    memcpy(&timestamp, buffer + 4, 8);
+    memcpy(&length, buffer + 12, 4);
+    
+    if (packet_len < 16 + length)
+        return -1;
+
+    heartbeat.timestamp = timestamp;
+    heartbeat.data = std::string(buffer + 16, length);
+    return 0;
+}
+
+size_t DiscoHeartbeat::write_to_buffer(char buffer[PACKET_MAX]) const
+{
+    size_t length = this->data.size();
+    const char* data = this->data.c_str();
+    
+    size_t packet_len = 16 + length;
+    if (packet_len > PACKET_MAX) {
+        fprintf(stderr, "Packet data to large %lld, buffer overflow\n", packet_len);
+        return -1;
+    }
+
+    memcpy(buffer + 0, "HRBA", 4);
+    memcpy(buffer + 4, &this->timestamp, 8);
+    memcpy(buffer + 12, &length, 4);
+    memcpy(buffer + 16, data, length);
+
+    return packet_len;
+}
+
+DiscoConnection::DiscoConnection(const DiscoConnection &other) :
+    name(other.name), 
+    status(other.status), 
+    sent_heartbeats(other.sent_heartbeats), 
+    max_heartbeats(other.max_heartbeats) { }
+
+const DiscoHeartbeat DiscoConnection::get_heartbeat()
+{
+    DiscoHeartbeat heartbeat(
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()).count(),
+        "name=disco.local\n"// TODO: temp name
+    );
+
+    if (this->sent_heartbeats.size() >= this->max_heartbeats) {
+        // TODO: too many heartbeats, timeout
+        this->status = DISCONNECTED;
+    }
+
+    this->sent_heartbeats.push_back(heartbeat);
+    return heartbeat;
+}
+
+void DiscoConnection::recv_heartbeat(const DiscoHeartbeat& heartbeat) {
+    auto it = this->sent_heartbeats.begin();
+    while (it != this->sent_heartbeats.end() && heartbeat.timestamp > it->timestamp) {
+        it++;
+    }
+
+    if (it == this->sent_heartbeats.end() || 
+            it->timestamp != heartbeat.timestamp ||
+            it->data != heartbeat.data) {
+        // TODO: invalid heartbeat
+    }
+
+    this->sent_heartbeats.erase(this->sent_heartbeats.begin(), it);
+    this->status = CONNECTED;
+}
 
 std::shared_ptr<httpserver::http_response> ConfigPostResource::render_POST(const httpserver::http_request& req) {
     if (req.content_too_large())
@@ -116,12 +274,22 @@ void HTTPConfigManager::wait_for_any_config() {
     }
 }
 
-UDPDisco::UDPDisco(std::unique_ptr<DiscoConfigManager>&& manager) : manager(std::move(manager)) {
+UDPDisco::UDPDisco(std::unique_ptr<DiscoConfigManager> &&manager, size_t num_sockets) : manager(std::move(manager))
+{
     // Create socket
     this->disco_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (this->disco_socket == -1) {
         print_error("socket failed with error");
         exit(1);
+    }
+
+    for (size_t i = 0; i < num_sockets; i++) {
+        int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        if (sock == -1) {
+            print_error("socket failed with error");
+            exit(1);
+        }
+        this->sockets.push_back(sock);
     }
 }
 
@@ -131,44 +299,131 @@ UDPDisco::~UDPDisco() {
 #else
     close(this->disco_socket);
 #endif
+
+    for (int sock : this->sockets) {
+#ifdef _WIN32
+        closesocket(sock);
+#else
+        close(sock);
+#endif
+    }
+}
+
+void UDPDisco::start_heartbeats() {
+    this->heart_beating = true;
+    this->heart_thread = std::thread([&](){ this->run_heartbeat(); });
+}
+
+void UDPDisco::stop_heartbeats() {
+    this->heart_beating = false;
+    this->heart_thread.join();
+}
+
+void UDPDisco::add_connection(const std::string& device_name, DiscoConnection connection) {
+    if (this->connections.count(device_name) == 0)
+        this->connections.emplace(device_name, connection);
+}
+
+const DiscoConnection &UDPDisco::get_connection(const std::string& device_name) const {
+    // TODO: error handling
+    return this->connections.at(device_name);
+}
+
+void UDPDisco::purge_connections() {
+    std::vector<std::string> not_found;
+    for (auto& pair : this->connections) {
+        if (pair.second.get_status() == NOT_FOUND)
+            not_found.push_back(pair.first);
+    }
+    for (auto& name : not_found) {
+        this->connections.erase(name);
+    }
+}
+
+std::vector<std::string> UDPDisco::get_connection_names() const
+{
+    std::vector<std::string> names;
+    for (auto& pair : this->connections) {
+        names.push_back(pair.first);
+    }
+    return names;
 }
 
 int UDPDisco::write(const std::string &id, const std::vector<vec4> &pixels)
 {
-    // Get config
-    DiscoConfig config = this->manager->get_config(id);
-
-    // Define address
-    struct sockaddr_in server_addr;
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(PORT);
-    server_addr.sin_addr.s_addr = inet_addr(config.address.c_str());
+    sockaddr_in server_addr = get_addr(this->manager, id);
 
     // Write packet to socket
-    char send_buffer[4096]; // TODO: BUFFER OVERFLOW!!!!
+    char send_buffer[PACKET_MAX];
     int packet_len = write_packet(pixels, send_buffer);
-    int send_result = sendto(this->disco_socket, send_buffer, packet_len, 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
+    if (packet_len < 0) {
+        return 1;
+    }
+
+    int send_result = sendto(this->disco_socket, send_buffer, packet_len, 0, (sockaddr*) &server_addr, (int) sizeof(server_addr));
     if (send_result < 0) {
         print_error("Sending got an error");
         return 1;
     }
 
-    // // Get response
-    // int bytes_received;
-    // char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
-    // int server_buf_len = 1024;
-
-    // struct sockaddr_in sender_addr;
-    // int sender_addr_size = sizeof (sender_addr);
-
-    // bytes_received = recvfrom(this->disco_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
-    // if (bytes_received < 0) {
-    //     print_error("recvfrom failed with error");
-    //     return 1;
-    // }
-    // server_buf[bytes_received] = '\0';
-
     return 0;
+}
+
+void UDPDisco::run_heartbeat() { // TODO: refactor
+    while (this->heart_beating) {
+        // Send heartbeats
+        std::vector<Packet> packets;
+        for (auto& connection_pair : this->connections) {
+            Packet packet;
+            std::string device_name = connection_pair.first;
+            DiscoConnection& connection = connection_pair.second;
+            
+            packet.addr = get_addr(this->manager, device_name);
+            DiscoHeartbeat heartbeat = connection.get_heartbeat();
+            packet.length = heartbeat.write_to_buffer(packet.data);
+            packets.push_back(packet);
+            //fprintf(stderr, "Sending heartbeat to device: %s, timestamp: %lld\n", device_name.c_str(), heartbeat.timestamp);
+        }
+        multi_send(this->sockets, packets);
+
+        // TODO: extract into function
+        // Listen for responses 
+        int num_socks;
+        fd_set sock_set;
+        int nfds = fill_fd_set(this->sockets, &sock_set);
+        timeval timeout = {0};
+        num_socks = select(nfds, &sock_set, NULL, NULL, &timeout);
+        
+        if (num_socks < 0) {
+            print_error("Heartbeat: read select got an error");
+        }
+        else if (num_socks > 0) {
+            for (int sock : this->sockets) {
+                if (!FD_ISSET(sock, &sock_set))
+                    continue;
+                sockaddr_in server_addr;
+                socklen_t addr_len = sizeof(server_addr);
+                char recv_buffer[PACKET_MAX];
+                int recv_result = recvfrom(sock, recv_buffer, PACKET_MAX, 0, (sockaddr*) &server_addr, &addr_len);
+                if (recv_result < 0)
+                    print_error("Heartbeat: recvfrom got an error");
+                else if (recv_result > 0) {
+                    DiscoHeartbeat heartbeat;
+                    int result = DiscoHeartbeat::response_from_buffer(recv_buffer, recv_result, heartbeat);
+                    if (result == 0) {
+                        std::string name = get_heartbeat_value(heartbeat, "name");
+                        //fprintf(stderr, "Got heartbeat response for device: %s, timestamp: %lld\n", name.c_str(), heartbeat.timestamp);
+                        if (this->connections.count(name) > 0)
+                            this->connections.at(name).recv_heartbeat(heartbeat);
+                    } else {
+                        fprintf(stderr, "Parsing heartbeat failed with code %d\n", result);
+                    }
+                }
+            }
+        }
+
+        sleep(1);
+    }
 }
 
 int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
@@ -240,7 +495,6 @@ int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
 }
 
 int DiscoDiscoverer::mDNS_auto_discover() {
-
     // Create socket
     int sock = -1;
     sockaddr_in saddr;
@@ -271,15 +525,32 @@ int DiscoDiscoverer::mDNS_auto_discover() {
     while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
         mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
     }
-    builder.get_configs_to(this->manager);
+    std::vector<std::string> names = builder.get_configs_to(this->manager);
+    // fprintf(stderr, "GOT config: %s\n", json(this->manager.get_config("disco.local")).dump(2).c_str());
+
+    // Create and test connections
+    for (auto& name : names) {
+        DiscoConnection connection(name);
+        this->master.add_connection(name, connection);
+    }
+    fprintf(stderr, "Testing connections\n");
+    this->master.start_heartbeats();
+    sleep(timeout);
+    this->master.stop_heartbeats();
+    this->master.purge_connections();
+
     fprintf(stderr, "Finished mDNS auto discovery\n");
-    fprintf(stderr, "GOT config: %s\n", json(this->manager->get_config("chroma.local")).dump(2).c_str());
+    fprintf(stderr, "FOUND connections:\n");
+    for (auto& name : this->master.get_connection_names()) {
+        fprintf(stderr, "\t%s\n", name.c_str());
+    }
 
     mdns_socket_close(sock);
     return 0;
 }
 
 //! NOTE: requires router to support broadcast packets
+//! DEPRECATED
 int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multicast
 
     // TODO: deal with timeouts
@@ -344,7 +615,7 @@ int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multic
     inet_ntop(AF_INET, &(sender_addr.sin_addr), send_buffer, 1000);
     config.address = std::string(send_buffer);
 
-    this->manager->set_config(config.controllerID, config);
+    this->manager.set_config(config.controllerID, config);
 
     // TODO: user prompt to connect
 
@@ -409,17 +680,20 @@ void mDNSRecordManager::process_AAAA(const std::string &host_name, const std::st
     this->ip6_table[host_name] = ip_addr;
 }
 
-void mDNSRecordManager::get_configs_to(DiscoConfigManager *manager) {
+std::vector<std::string> mDNSRecordManager::get_configs_to(DiscoConfigManager& manager) {
+    std::vector<std::string> names;
     for (auto& record_pair : this->records) {
         auto& record = record_pair.second;
         if (record->host_name != "" && record->text.count("version") > 0) {
             fprintf(stderr, "Adding record %s\n", record->host_name.c_str());
-            manager->set_config(record->host_name, {
+            manager.set_config(record->host_name, {
                 record->host_name,
                 record->text.count("device") > 0 ? record->text["device"] : "unknown",
                 stoi(record->text["version"]),
                 this->ip4_table[record->host_name]
             }); // TODO: provide more info to config
+            names.push_back(record->host_name);
         }
     }
+    return names;
 }
