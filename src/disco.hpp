@@ -50,7 +50,7 @@ struct DiscoHeartbeat {
 
     DiscoHeartbeat(unsigned long long timestamp=0, std::string data="") :
         timestamp(timestamp), data(data) { }
-    static int response_from_buffer(char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat);
+    static int response_from_buffer(const char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat);
     size_t write_to_buffer(char buffer[PACKET_MAX]) const;
 };
 

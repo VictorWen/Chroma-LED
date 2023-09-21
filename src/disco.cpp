@@ -104,6 +104,25 @@ int fill_fd_set(const std::vector<int> sockets, fd_set* set) {
     return max_sock + 1;
 }
 
+int send_packet(int sock, const Packet& packet) {
+    int send_result = sendto(sock, packet.data, packet.length, 0, (sockaddr*) &packet.addr, (int) sizeof(packet.addr));
+    if (send_result < 0) {
+        print_error("Heartbeat: Sending got an error");
+        return -1;
+    }
+    return send_result;
+}
+
+int recv_packet(int sock, Packet& packet) {
+    socklen_t addr_len = sizeof(packet.addr);
+    int recv_result = recvfrom(sock, packet.data, PACKET_MAX, 0, (sockaddr*) &packet.addr, &addr_len);
+    if (recv_result < 0) {
+        print_error("Heartbeat: recvfrom got an error");
+        return -1;
+    }
+    return recv_result;
+}
+
 int multi_send(const std::vector<int>& sockets, const std::vector<Packet>& packets) {
     int num_socks;
     fd_set sock_set;
@@ -111,28 +130,50 @@ int multi_send(const std::vector<int>& sockets, const std::vector<Packet>& packe
     while (it != packets.end()) {
         int nfds = fill_fd_set(sockets, &sock_set);
         num_socks = select(nfds, NULL, &sock_set, NULL, NULL);
+        
         if (num_socks < 0) {
             print_error("select got an error");
             return -1;
         }
+        else if (num_socks == 0)
+            return 0;
 
-        if (num_socks > 0) {
-            for (size_t i = 0; i < sockets.size() && it != packets.end(); i++) {
-                int sock = sockets[i];
-                if (!FD_ISSET(sock, &sock_set))
-                    continue;
-                
-                int send_result = sendto(sock, it->data, it->length, 0, (sockaddr*) &it->addr, (int) sizeof(it->addr));
-                if (send_result < 0) {
-                    print_error("Heartbeat: Sending got an error");
-                    continue;
-                }
+        for (size_t i = 0; i < sockets.size() && it != packets.end(); i++) {
+            int sock = sockets[i];
+            if (!FD_ISSET(sock, &sock_set))
+                continue;
+            if (send_packet(sock, *it) < 0)
+                continue;
 
-                it++;
-            }
+            it++;
         }
     }
     return 0;
+}
+
+int multi_recv(const std::vector<int>& sockets, std::vector<Packet>& packets, timeval timeout={0}) {
+    int num_socks;
+    fd_set sock_set;
+    int nfds = fill_fd_set(sockets, &sock_set);
+    num_socks = select(nfds, &sock_set, NULL, NULL, &timeout);
+    
+    if (num_socks < 0) {
+        print_error("Heartbeat: read select got an error");
+        return -1;
+    }
+    else if (num_socks == 0)
+        return 0;
+
+    for (int sock : sockets) {
+        if (!FD_ISSET(sock, &sock_set))
+            continue;
+        Packet packet;
+        int recv_result = recv_packet(sock, packet);
+        if (recv_result < 0)
+            return -1;
+        packets.push_back(packet);
+    }
+    return num_socks;
 }
 
 //! TEMP FUNCTION
@@ -149,7 +190,7 @@ std::string get_heartbeat_value(const DiscoHeartbeat& heartbeat, const std::stri
     return "";
 }
 
-int DiscoHeartbeat::response_from_buffer(char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat) {
+int DiscoHeartbeat::response_from_buffer(const char buffer[PACKET_MAX], size_t packet_len, DiscoHeartbeat& heartbeat) {
     if (packet_len < 16)
         return -1;
     std::string_view packet_type(buffer, 4);
@@ -386,39 +427,19 @@ void UDPDisco::run_heartbeat() { // TODO: refactor
         }
         multi_send(this->sockets, packets);
 
-        // TODO: extract into function
         // Listen for responses 
-        int num_socks;
-        fd_set sock_set;
-        int nfds = fill_fd_set(this->sockets, &sock_set);
-        timeval timeout = {0};
-        num_socks = select(nfds, &sock_set, NULL, NULL, &timeout);
-        
-        if (num_socks < 0) {
-            print_error("Heartbeat: read select got an error");
-        }
-        else if (num_socks > 0) {
-            for (int sock : this->sockets) {
-                if (!FD_ISSET(sock, &sock_set))
-                    continue;
-                sockaddr_in server_addr;
-                socklen_t addr_len = sizeof(server_addr);
-                char recv_buffer[PACKET_MAX];
-                int recv_result = recvfrom(sock, recv_buffer, PACKET_MAX, 0, (sockaddr*) &server_addr, &addr_len);
-                if (recv_result < 0)
-                    print_error("Heartbeat: recvfrom got an error");
-                else if (recv_result > 0) {
-                    DiscoHeartbeat heartbeat;
-                    int result = DiscoHeartbeat::response_from_buffer(recv_buffer, recv_result, heartbeat);
-                    if (result == 0) {
-                        std::string name = get_heartbeat_value(heartbeat, "name");
-                        //fprintf(stderr, "Got heartbeat response for device: %s, timestamp: %lld\n", name.c_str(), heartbeat.timestamp);
-                        if (this->connections.count(name) > 0)
-                            this->connections.at(name).recv_heartbeat(heartbeat);
-                    } else {
-                        fprintf(stderr, "Parsing heartbeat failed with code %d\n", result);
-                    }
-                }
+        packets.clear();
+        multi_recv(this->sockets, packets);
+        for (const auto& packet : packets) {
+            DiscoHeartbeat heartbeat;
+            int result = DiscoHeartbeat::response_from_buffer(packet.data, packet.length, heartbeat);
+            if (result == 0) {
+                std::string name = get_heartbeat_value(heartbeat, "name");
+                //fprintf(stderr, "Got heartbeat response for device: %s, timestamp: %lld\n", name.c_str(), heartbeat.timestamp);
+                if (this->connections.count(name) > 0)
+                    this->connections.at(name).recv_heartbeat(heartbeat);
+            } else {
+                fprintf(stderr, "Parsing heartbeat failed with code %d\n", result);
             }
         }
 
