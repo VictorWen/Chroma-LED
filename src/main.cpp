@@ -152,7 +152,10 @@ int main() {
     ChromaEnvironment cenv;
     cenv.controller = &controller;
 
-    ChromaCLI cli(cenv);
+    auto config_manager = std::make_unique<DictionaryConfigManager>();
+    UDPDisco disco(std::move(config_manager));
+
+    ChromaCLI cli(cenv, disco);
 
     cli.register_command(RGB_CMD);
     cli.register_command(ALPHA_CMD);
@@ -181,25 +184,19 @@ int main() {
 
     fprintf(stderr, "Ready to start...\n"); // TODO: do proper logging
 
-    auto httpServer = std::make_unique<HTTPConfigManager>();
-    auto& httpServer_ref = *httpServer;
-    ChromaWebServer web_server(controller, cli, *httpServer, 80);
-    UDPDisco disco(std::move(httpServer));
+    ChromaWebServer web_server(controller, cli, *config_manager, 80);
     
-    DiscoDiscoverer discoverer(disco, httpServer_ref);
-    if (discoverer.mDNS_auto_discover() != 0)
+    mDNSDiscoverer discoverer(disco);
+    if (discoverer.run() != 0)
         return 1;
     
-    // httpServer->start();
     // web_server.start();
 
     // fprintf(stderr, "Waiting for Disco config...\n");
     // httpServer->wait_for_any_config();
 
-    
-    
-    // cli.read_scriptfile();
-    // cli.run_stdin(disco);
+    cli.read_script_file();
+    cli.run_stdin();
 
 #ifdef _WIN32
     WSACleanup();

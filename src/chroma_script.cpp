@@ -24,7 +24,7 @@ void Tokenizer::tokenize(std::string input, std::deque<ParseToken>& output, std:
     std::regex keyword_regex(R"(^(let|func))");
     std::regex number_regex(R"(^[+-]?((\d+\.?\d*)|(\d*\.?\d+)))"); // positive or negative, without or without decimal point, with at least one digit
     std::regex string_regex(R"(^\".*\")");
-    std::regex identifier_regex(R"(^[A-Za-z_]+\w*)"); // alphabetic character followed by any number of alphanumerics
+    std::regex identifier_regex(R"(^[A-Za-z_]+[A-Za-z_0-9\-]*)"); // alphabetic character followed by any number of alphanumerics
     // std::regex newline_regex(R"(\n+\s*)");
     std::regex white_space_regex(R"(^\s+)");
     // std::regex space_regex(R"([^\S\r\n]+)");

@@ -44,6 +44,8 @@ enum DiscoConnectionStatus {
     NOT_FOUND
 };
 
+std::string conn_to_string(DiscoConnectionStatus status);
+
 struct DiscoHeartbeat {
     uint64_t timestamp;
     std::string data;
@@ -61,15 +63,23 @@ class DiscoConnection {
         std::deque<DiscoHeartbeat> sent_heartbeats;
         size_t max_heartbeats = 10;
     public:
+        DiscoConnection() : name("") { };
         DiscoConnection(const std::string& device_name) : name(device_name) { };
         DiscoConnection(const DiscoConnection& other);
         // ~DiscoConnection();
         const DiscoHeartbeat get_heartbeat();
         void recv_heartbeat(const DiscoHeartbeat& heartbeat);
-        // void disconnect();
+        void disconnect();
         // void connect();
-        DiscoConnectionStatus get_status() { return this->status; };
+        DiscoConnectionStatus get_status() const { return this->status; };
         // int write(const std::vector<vec4>& pixels);
+};
+
+class DiscoConfigManager {
+    public:
+        virtual DiscoConfig get_config(std::string id) = 0;
+        virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
+        virtual bool has_config(std::string id) = 0;
 };
 
 class DiscoMaster {
@@ -78,18 +88,11 @@ class DiscoMaster {
         virtual void start_heartbeats() = 0;
         virtual void stop_heartbeats() = 0;
         virtual void add_connection(const std::string& device_name, DiscoConnection connection) = 0;
-        virtual const DiscoConnection& get_connection(const std::string& device_name) const = 0;
+        virtual DiscoConnection& get_connection(const std::string& device_name) = 0;
         virtual void purge_connections() = 0;
         virtual std::vector<std::string> get_connection_names() const = 0;
+        virtual DiscoConfigManager& get_manager() const = 0;
         virtual int write(const std::string& id, const std::vector<vec4>& pixels) = 0;
-};
-
-
-class DiscoConfigManager {
-    public:
-        virtual DiscoConfig get_config(std::string id) = 0;
-        virtual DiscoConfig set_config(std::string id, DiscoConfig config) = 0;
-        virtual bool has_config(std::string id) = 0;
 };
 
 class DictionaryConfigManager : public DiscoConfigManager {
@@ -145,20 +148,25 @@ class UDPDisco : public DiscoMaster {
         void start_heartbeats();
         void stop_heartbeats();
         void add_connection(const std::string& device_name, DiscoConnection connection);
-        const DiscoConnection& get_connection(const std::string& device_name) const;
+        DiscoConnection& get_connection(const std::string& device_name);
         void purge_connections();
         std::vector<std::string> get_connection_names() const;
+        DiscoConfigManager& get_manager() const { return *this->manager; }
         int write(const std::string& id, const std::vector<vec4>& pixels);
 };
 
 class DiscoDiscoverer {
+    public:
+        virtual int run(double timeout) = 0;
+};
+
+class mDNSDiscoverer : public DiscoDiscoverer {
     private:
         DiscoMaster& master;
         DiscoConfigManager& manager;
     public:
-        DiscoDiscoverer(DiscoMaster& master, DiscoConfigManager& manager) : master(master), manager(manager) { }
-        int mDNS_auto_discover();
-        int broadcast_auto_discover();
+        mDNSDiscoverer(DiscoMaster& master) : master(master), manager(master.get_manager()) { }
+        int run(double timeout = 3);
 };
 
 class mDNSRecordManager {

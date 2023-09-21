@@ -19,14 +19,16 @@ class ChromaCLI {
         std::stack<char> brackets;
         Tokenizer tokenizer;
         ChromaEnvironment& cenv;
+        DiscoMaster& disco;
+
         void handle_stdin_input();
     public:
-        ChromaCLI(ChromaEnvironment& cenv) : cenv(cenv) { }
+        ChromaCLI(ChromaEnvironment& cenv, DiscoMaster& disco);
         int process_text(const std::string& input, std::ostream& output);
         int process_input(const std::string& input, std::ostream& output);
         template<typename T> void register_command(const T& cmd);
-        void run_stdin(DiscoMaster& disco);
-        void read_scriptfile(const std::string& filename = "scripts/startup.chroma");
+        void run_stdin();
+        void read_script_file(const std::string& filename = "scripts/startup.chroma");
 };
 
 template<typename T>

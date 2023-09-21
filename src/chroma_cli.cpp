@@ -13,6 +13,42 @@
 
 #include "evaluator.hpp"
 
+ChromaCLI::ChromaCLI(ChromaEnvironment& cenv, DiscoMaster& disco) : cenv(cenv), disco(disco) {
+    this->register_command(LambdaAdapter("read", "Read in a ChromaScript file", std::vector<std::shared_ptr<CommandArgument>>({
+        std::make_shared<TypeArgument>("FILENAME", STRING_TYPE, "File name of the ChromaScript file")
+    }),
+        [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+            this->read_script_file(args[0].get_string());
+            return ChromaData();
+        }
+    ));
+
+    this->register_command(LambdaAdapter("disco-scan", "Scan for disco devices on the local network", std::vector<std::shared_ptr<CommandArgument>>({
+        std::make_shared<TypeArgument>("TIMEOUT", NUMBER_TYPE, "Max time alloted to complete scan in seconds", true)
+    }),
+        [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+            mDNSDiscoverer discoverer(this->disco);
+            double timeout = 2;
+            if (args.size() > 0)
+                timeout = args[0].get_float();
+            discoverer.run(timeout);
+            return ChromaData();
+        }
+    ));
+
+    this->register_command(LambdaAdapter("disco-list", "List all disco devices found on the local network", std::vector<std::shared_ptr<CommandArgument>>(),
+        [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
+            for (const std::string& name : this->disco.get_connection_names()) {
+                const DiscoConnection& connection = this->disco.get_connection(name);
+                const DiscoConfig& config = this->disco.get_manager().get_config(name);
+
+                fprintf(stderr, "- %s - address: %s, status: %s\n", name.c_str(), config.address.c_str(), conn_to_string(connection.get_status()).c_str());
+            }
+            return ChromaData();
+        }
+    ));
+}
+
 void ChromaCLI::handle_stdin_input() {
     int result = -1;
     fprintf(stderr, "Input Command: ");
@@ -87,7 +123,6 @@ int ChromaCLI::process_input(const std::string& input, std::ostream& output) {
     try {
         Evaluator ev(cenv);
         ev.visit(*command);
-        // const ChromaData& ret_val = ev.get_env().ret_val;
         return PARSE_GOOD;
     } catch (ChromaRuntimeException& e) {
         cenv.ret_val = ChromaData();
@@ -96,41 +131,15 @@ int ChromaCLI::process_input(const std::string& input, std::ostream& output) {
     }
 }
 
-void ChromaCLI::run_stdin(DiscoMaster& disco) {
-    // #ifdef _WIN32
-    //     _setmode(_fileno(stdout), _O_BINARY);
-    // #endif
-
-    this->register_command(LambdaAdapter("read", "Read in a ChromaScript file", std::vector<std::shared_ptr<CommandArgument>>({
-        std::make_shared<TypeArgument>("FILENAME", STRING_TYPE, "File name of the ChromaScript file")
-    }),
-        [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
-            this->read_scriptfile(args[0].get_string());
-            return ChromaData();
-        }
-    ));
-
-    // this->register_command(LambdaAdapter("help", "Get the help page for a command", std::vector<std::shared_ptr<CommandArgument>>({
-    //     std::make_shared<TypeArgument>("COMMAND", STRING_TYPE, "name of the command to get help")
-    // }),
-    //     [&](const std::vector<ChromaData>& args, ChromaEnvironment& env) {
-    //         std::string cmd_name = args[0].get_string();
-    //         if (this->commands.count(cmd_name) > 0)
-    //             fprintf("=== HELP ===\n%s\n===========\n", this->commands[cmd_name].get_help().c_str());
-    //         else
-    //             fprintf("ERROR: command %s does not exists", cmd_name.c_str());
-    //         return ChromaData();
-    //     }
-    // ));
-
+void ChromaCLI::run_stdin() {
     fprintf(stderr, "Starting input thread\n");
     std::thread thread([&](){this->handle_stdin_input();});
     fprintf(stderr, "Starting controller\n");
-    cenv.controller->run(60, 150, disco);
+    cenv.controller->run(60, 150, this->disco);
     thread.join();
 }
 
-void ChromaCLI::read_scriptfile(const std::string& filename) {
+void ChromaCLI::read_script_file(const std::string& filename) {
     int result = -1;
     std::ifstream startup_file (filename);
     for (std::string line; std::getline(startup_file, line);) {

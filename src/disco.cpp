@@ -46,6 +46,14 @@ void from_json(const json& j, DiscoConfig& config) {
         j.at("address").get_to(config.address);
 }
 
+std::string conn_to_string(DiscoConnectionStatus status) {
+    if (status < 0 || status > 3) {
+        return "UNKNOWN STATUS";
+    }
+    std::string conn_to_string[] = {"AVAILABLE", "CONNECTED", "DISCONNECTED", "NOT FOUND"};
+    return conn_to_string[status];
+}
+
 size_t write_packet(const std::vector<vec4>& pixels, char buffer[4096]) {
     // Fill packet information
     DiscoPacket packet;
@@ -268,6 +276,12 @@ void DiscoConnection::recv_heartbeat(const DiscoHeartbeat& heartbeat) {
     this->status = CONNECTED;
 }
 
+void DiscoConnection::disconnect() {
+    if (this->status = CONNECTED)
+        this->status = AVAILABLE;
+    this->sent_heartbeats.clear();
+}
+
 std::shared_ptr<httpserver::http_response> ConfigPostResource::render_POST(const httpserver::http_request& req) {
     if (req.content_too_large())
         return std::shared_ptr<httpserver::http_response>(new httpserver::string_response("ERROR: Content too long")); // TODO: error handling
@@ -362,12 +376,12 @@ void UDPDisco::stop_heartbeats() {
 
 void UDPDisco::add_connection(const std::string& device_name, DiscoConnection connection) {
     if (this->connections.count(device_name) == 0)
-        this->connections.emplace(device_name, connection);
+        this->connections[device_name] =  connection;
 }
 
-const DiscoConnection &UDPDisco::get_connection(const std::string& device_name) const {
+DiscoConnection &UDPDisco::get_connection(const std::string& device_name) {
     // TODO: error handling
-    return this->connections.at(device_name);
+    return this->connections[device_name];
 }
 
 void UDPDisco::purge_connections() {
@@ -515,7 +529,7 @@ int on_mDNS_service_found(int sock, const struct sockaddr* from, size_t addrlen,
     return 0;
 }
 
-int DiscoDiscoverer::mDNS_auto_discover() {
+int mDNSDiscoverer::run(double timeout) {
     // Create socket
     int sock = -1;
     sockaddr_in saddr;
@@ -541,7 +555,6 @@ int DiscoDiscoverer::mDNS_auto_discover() {
 
     // Collect responses
     mDNSRecordManager builder;
-    const double timeout = 5;
     auto timer = std::chrono::high_resolution_clock::now();
     while (std::chrono::duration<double, std::milli>(std::chrono::high_resolution_clock::now() - timer).count() < timeout * 1e3) {
         mdns_query_recv(sock, buffer, buff_size, on_mDNS_service_found, &builder, 0);
@@ -564,113 +577,10 @@ int DiscoDiscoverer::mDNS_auto_discover() {
     fprintf(stderr, "FOUND connections:\n");
     for (auto& name : this->master.get_connection_names()) {
         fprintf(stderr, "\t%s\n", name.c_str());
+        this->master.get_connection(name).disconnect();
     }
 
     mdns_socket_close(sock);
-    return 0;
-}
-
-//! NOTE: requires router to support broadcast packets
-//! DEPRECATED
-int DiscoDiscoverer::broadcast_auto_discover() { // TODO: add support for multicast
-
-    // TODO: deal with timeouts
-
-    fprintf(stderr, "Starting auto-discovery\n");
-
-    // Create socket
-    int client_socket = -1;
-    client_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (client_socket == -1) {
-        print_error("socket failed with error");
-        return 1;
-    }
-
-    char flags = 1;
-
-    // Set socket flags
-    if (setsockopt(client_socket, SOL_SOCKET, SO_BROADCAST, &flags, sizeof(flags)) < 0)
-        print_error("setsockopt failed with error");
-
-    // Define address
-    struct sockaddr_in server_addr;
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(DISCOVER_PORT);
-    server_addr.sin_addr.s_addr = INADDR_BROADCAST;
-
-    // Write packet to socket
-    char send_buffer[4096] = "DISCO DISCOVER\n"; 
-    int send_result = sendto(client_socket, send_buffer, strlen(send_buffer), 0, (struct sockaddr *) & server_addr, (int)sizeof(server_addr));
-    if (send_result < 0) {
-        print_error("Sending got an error");
-        return 1;
-    }
-
-    // Get response
-    int bytes_received;
-    char server_buf[1025]; // TODO: BUFFER OVERFLOW!!!!
-    int server_buf_len = 1024;
-
-    struct sockaddr_in sender_addr;
-    int sender_addr_size = sizeof (sender_addr);
-
-    bytes_received = recvfrom(client_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
-    if (bytes_received < 0) {
-        print_error("recvfrom failed with error");
-        return 1;
-    }
-    server_buf[bytes_received] = '\0';
-
-    fprintf(stderr, "Got response: %s\n", server_buf);
-
-    // Save hardware info
-    std::string_view response(server_buf);
-    if (response.substr(0, strlen(DISCOVER_FOUND)) != DISCOVER_FOUND) {
-        fprintf(stderr, "Unexpected response\n");
-        return 1;
-    }
-    
-    json json_data = json::parse(response.substr(strlen(DISCOVER_FOUND)));
-    DiscoConfig config = json_data.get<DiscoConfig>();
-    inet_ntop(AF_INET, &(sender_addr.sin_addr), send_buffer, 1000);
-    config.address = std::string(send_buffer);
-
-    this->manager.set_config(config.controllerID, config);
-
-    // TODO: user prompt to connect
-
-    // Return connect
-    strcpy(send_buffer, "DISCO CONNECT\n{\"discoVersion\":1,\"configProtocol\":\"HTTP\",\"dataProtocol\":\"UDP\"}"); // TODO: generalize response data
-    send_result = sendto(client_socket, send_buffer, strlen(send_buffer), 0, (struct sockaddr *) & sender_addr, sender_addr_size);
-    if (send_result < 0) {
-        print_error("Sending got an error");
-        return 1;
-    }
-
-    // TODO: Disco heartbeat
-
-    // Wait for READY message
-    bytes_received = recvfrom(client_socket, server_buf, server_buf_len, 0, (struct sockaddr *) & sender_addr, &sender_addr_size);
-    if (bytes_received < 0) {
-        print_error("recvfrom failed with error");
-        return 1;
-    }
-    server_buf[bytes_received] = '\0';
-
-    response = std::string_view(server_buf);
-    if (response != DISCOVER_READY) {
-        fprintf(stderr, "Unexpected response\n");
-        return 1;
-    }
-
-    fprintf(stderr, "Finished auto-discovery scan\n");
-
-#ifdef _WIN32
-    closesocket(client_socket);
-#else
-    close(client_socket);
-#endif
     return 0;
 }
 
